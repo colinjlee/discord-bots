@@ -2,6 +2,7 @@ from discord.ext import commands
 import discord
 import random
 import typing
+import gamble_bot_methods
 
 bot = commands.Bot(command_prefix = "g!")
 
@@ -12,8 +13,8 @@ async def on_ready():
 #List of commands for the bot
 @bot.command()
 async def halp(ctx):
-    mes = """g!flip: Flips a fair coin once"""
-    await ctx.send(mes)
+    msg = """g!flip: Flips a fair coin once"""
+    await ctx.send(msg)
 
 #Check the bot ping
 @bot.command()
@@ -24,15 +25,12 @@ async def ping(ctx):
 
 #Flip a fair coin up to 100,000 times at once with default flip amount of 1
 @bot.command()
-async def flip(ctx, amount:typing.Optional[int] = 1):
-    #Counters for head and tail flips
-    head = tail = 0
-
+async def flip(ctx, numFlips:typing.Optional[int] = 1):
     #Amount of flips must be positive
-    if amount < 1:
+    if numFlips < 1:
         await ctx.send("Amount of rolls must be positive or empty to use default value")
     #Flip just once
-    elif amount == 1:
+    elif numFlips == 1:
         rand = random.randint(0,1)
         if rand == 0:
             await ctx.send("Heads")
@@ -41,65 +39,54 @@ async def flip(ctx, amount:typing.Optional[int] = 1):
     #Different message format for flipping more than once
     else:
         #String to be sent after results
-        mes = ""
+        msg = ""
+        if numFlips > 100000:
+            msg += "**Max of 100,000 flips**\n"
+            numFlips = 100000
 
-        if amount > 100000:
-            mes += "Max of 100,000 flips at once\n"
-            amount = 100000
+        #Get and send results
+        results = gamble_bot_methods.roll(numFlips, 2)
+        head = results[0]
+        tail = results[1]
+        hRate = head/numFlips*100
+        tRate = tail/numFlips*100
 
-        #Start flipping
-        for x in range(0, amount):
-            rand = random.randint(0,1)
-            if rand == 0:
-                head += 1
-            else:
-                tail += 1
-
-        #Send results
-        mes += "Heads: {:,d} ({:.2f}%)\nTails: {:,d} ({:.2f}%)"
-        hRate = head/amount*100
-        tRate = tail/amount*100
-        await ctx.send(mes.format(head, hRate, tail, tRate))
+        msg += "Heads: {:,d} ({:.2f}%)\nTails: {:,d} ({:.2f}%)"
+        await ctx.send(msg.format(head, hRate, tail, tRate))
 
 #Roll a die with default face value of 6 and roll amount of 1
 #Maximum face value of 100 and roll amount of 100,000
 @bot.command()
-async def roll(ctx, amount:typing.Optional[int] = 1, numSides:typing.Optional[int] = 6):
+async def roll(ctx, numRolls:typing.Optional[int] = 1, numSides:typing.Optional[int] = 6):
     #Amount of flips and face count must be positive
-    if amount < 1 or numSides < 1:
+    if numRolls < 1 or numSides < 1:
         await ctx.send("Amount of rolls and die side count must be positive or empty to use default values")
     #Roll just once
-    elif amount == 1:
+    elif numRolls == 1:
         rand = random.randint(1,numSides)
         await ctx.send(rand)
     #Different message format for rolling more than once
     else:
-        #String and results to be sent
-        mes = ""
-        result = [0] * numSides
-
+        #String of results to be sent
+        msg = ""
         if numSides > 100:
-            str += "Max of 100 sided die\n"
-            die = 100
-        if amount > 100000:
-            str += "Max of 100,000 rolls at once\n"
-            amount = 100000
+            msg += "**Max of 100 sided die**\n"
+            numSides = 100
+        if numRolls > 100000:
+            msg += "**Max of 100,000 rolls**\n"
+            numRolls = 100000
 
-        #Start rolling
-        for x in range(0, amount):
-            rand = random.randint(1,numSides)
-            result[rand-1] += 1
-
-        #Send results. Note bots have max length of 2000 per message
+        #Get and send results. Note bots have max length of 2,000 chars per msg
+        results = gamble_bot_methods.roll(numRolls, numSides)
         for x in range(0, numSides):
-            if result[x] > 0:
-                res = "{:,d}: {:,d} ({:.2f}%)\n".format(x+1, result[x], (result[x]/amount*100))
-                if len(mes) + len(res) > 2000:
-                    await ctx.send(mes)
-                    mes = res
+            if results[x] > 0:
+                res = "{:,d}: {:,d} ({:.2f}%)\n".format(x+1, results[x], (results[x]/numRolls*100))
+                if len(msg) + len(res) > 2000:
+                    await ctx.send(msg)
+                    msg = res
                 else:
-                    mes += res
-        await ctx.send(mes)
+                    msg += res
+        await ctx.send(msg)
 
 #Read in the unique bot ID and run bot
 def read_ID():
