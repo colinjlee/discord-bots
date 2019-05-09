@@ -8,11 +8,12 @@ scope = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/aut
 creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
 client = gspread.authorize(creds)
 
-#Google sheets containing user marvel/philo stats
+#Google sheets containing user stats
 philoStatSheet = client.open("Gamble Bot User Stats").get_worksheet(0)
 philoItemRow = philoStatSheet.row_values(1)
 marvelStatSheet = client.open("Gamble Bot User Stats").get_worksheet(1)
 marvelItemRow = marvelStatSheet.row_values(1)
+#blackJackStatSheet = client.open("Gamble Bot User Stats").get_worksheet(3)
 
 #Make a mapping for marvel and philo items to column number
 marvelItemMapping = {}
@@ -22,9 +23,6 @@ for i in range(2, len(marvelItemRow)):
 philoItemMapping = {}
 for i in range(2, len(philoItemRow)):
     philoItemMapping[philoItemRow[i]] = i+1
-
-#Google sheets containing user blackjack stats
-#statSheet2 = client.open("Gamble Bot User Stats").get_worksheet(3)
 
 #Google sheets containing public rates of philosopher books and marvel machine
 #Philo rates: http://maplestory.nexon.net/micro-site/42030
@@ -43,7 +41,7 @@ philoItemList2 = philoSheet.col_values(6)
 philoRateList1 = philoSheet.col_values(4)
 philoRateList2 = philoSheet.col_values(7)
 
-#Make lists containing the items proportionate to their rate
+#Make lists containing the philo items proportionate to their rate
 for i in range(1, len(philoItemList1)):
     #Make the items lowercase for easier matching
     philoItemList1[i] = philoItemList1[i].lower()
@@ -72,6 +70,7 @@ marvelRateList1 = marvelSheet.col_values(4)
 marvelRateList2 = marvelSheet.col_values(7)
 marvelRateList3 = marvelSheet.col_values(10)
 
+#Make lists containing the marvel items proportionate to their rate
 #Note that some item rates from list 1 and 2 of marvel go up to 3 decimal places
 for i in range(1, len(marvelItemList1)):
     marvelItemList1[i] = marvelItemList1[i].lower()
@@ -90,6 +89,38 @@ for i in range(1, len(marvelItemList3)):
     item = marvelItemList3[i]
     rate = float(marvelRateList3[i][:-1])*1000
     marvelList3 += [item]*int(rate)
+
+#Make sure user stats align with top row, if not then add 0s for new data
+philoUsersList = philoStatSheet.col_values(2)
+marvelUsersList = marvelStatSheet.col_values(2)
+#bjUsersList = blackJackStatSheet.col_values(2)
+
+#Lengths of first rows, the descriptions
+philoLength = len(philoItemRow)
+marvelLength = len(marvelItemRow)
+#bjLength = len(bjItemRow)
+
+#Make user stats in line with philo items
+for i in range(1, len(philoUsersList)):
+    userLength = len(philoStatSheet.row_values(i+1))
+    if userLength != philoLength:
+        if userLength < philoLength:
+            for j in range(userLength+1, philoLength+1):
+                philoStatSheet.update_cell(i+1, j, "0")
+        else:
+            for j in range(philoLength+1, userLength+1):
+                philoStatSheet.update_cell(i+1, j, "")
+
+#Make user stats in line with marvel items
+for i in range(1, len(marvelUsersList)):
+    userLength = len(marvelStatSheet.row_values(i+1))
+    if userLength != marvelLength:
+        if userLength < marvelLength:
+            for j in range(userLength+1, marvelLength+1):
+                marvelStatSheet.update_cell(i+1, j, "0")
+        else:
+            for j in range(marvelLength+1, userLength+1):
+                marvelStatSheet.update_cell(i+1, j, "")
 
 #Calculate philo or marvel spendings
 #Return result through pair
@@ -214,10 +245,49 @@ def pmStats(userName, userID):
 def bjStats(userName, userID):
     return("TODO")
 
-#TODO: reset stats
+#TODO: bj reset stats
+#Reset user stats for specified data
+#(1) philo (2) marvel (3) blackjack or (4) all
 #Return a string indicating success
 def resetStats(userName, userID, statsType):
-    return("TODO")
+    global philoStatSheet, marvelStatSheet, philoItemRow, marvelItemRow
+
+    #Indicators of which stats to reset
+    philoReset = False
+    marvelReset = False
+    bjReset = False
+
+    if statsType == 4:
+        philoReset = marvelReset = bjReset = True
+    elif statsType == 3:
+        bjReset = True
+    elif statsType == 2:
+        marvelReset = True
+    elif statsType == 1:
+        philoReset = True
+    else:
+        return "Invalid type"
+
+    msg = ""
+    #Reset desired stats
+    if philoReset == True:
+        userRow = getUserRow(userName, userID)[0]
+        userNew = [userName, userID]
+        userNew += [0] * int(len(philoItemRow)-2)
+        philoStatSheet.delete_row(userRow)
+        philoStatSheet.append_row(userNew)
+        msg += "Successfully reset philosopher book stats\n"
+    if marvelReset == True:
+        userRow = getUserRow(userName, userID)[1]
+        userNew = [userName, userID]
+        userNew += [0] * int(len(marvelItemRow)-2)
+        marvelStatSheet.delete_row(userRow)
+        marvelStatSheet.append_row(userNew)
+        msg += "Successfully reset marvel machine stats\n"
+    if bjReset == True:
+        msg += "TODO: Add reset black jack stats"
+
+    return msg
 
 #Returns a string of the notable items won from philo or marvel
 def notableItems(luckyList, gotLucky):
@@ -230,13 +300,31 @@ def notableItems(luckyList, gotLucky):
         msg = "\n**__No notable items__**"
     return msg
 
+#Make a dictionary of lucky items for (0) philo or (1) marvel
+def makeLuckyList(numIndicator):
+    global philoItemRow, marvelItemRow
+
+    luckyList = {}
+    if numIndicator == 0:
+        #Start from 3 to skip name, id, and #rolls column
+        for i in range(3, len(philoItemRow)):
+            item = philoItemRow[i]
+            luckyList[item] = 0
+    else:
+        #Start from 3 to skip name, id, and #rolls column
+        for i in range(3, len(marvelItemRow)):
+            item = marvelItemRow[i]
+            luckyList[item] = 0
+
+    return luckyList
+
 #Roll a specified number of philosopher books, up to 165
 #Return the results through an array
 def philoRoll(userName, userID, numRolls):
     global philoList1, philoList2
 
     #Lucky items in philo
-    lucky = {"battle-roid (f) coupon":0, "battle-roid (m) coupon":0, "outlaw heart":0, "frenzy totem":0, "firestarter ring coupon":0, "wolf underling familiar":0}
+    lucky = makeLuckyList(0)
     gotLucky = False
     messages = []
     msg = ""
@@ -328,9 +416,7 @@ def marvelRoll(userName, userID, numRolls):
     global marvelList1, marvelList2, marvelList3
 
     #Lucky items in marvel
-    lucky = {"1 mil maple points":0, "frenzy totem":0, "dark avenger totem":0, "dark doom totem":0, "dark grin totem":0, "dark hellia totem":0,
-    "lucid's earrings coupon":0, "firestarter ring":0, "the ring of torment coupon":0, "permanent pendant slot":0, "permanent hyper teleport rock coupon":0,
-    "battleroid (male)":0, "battleroid (female)":0, "outlaw heart":0, "100,000 maple points chip":0, "wolf underling familiar":0}
+    lucky = makeLuckyList(1)
     gotLucky = False
     messages = []
     msg = ""

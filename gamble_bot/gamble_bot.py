@@ -13,13 +13,12 @@ async def on_ready():
 #List of commands for the bot
 @bot.command()
 async def halp(ctx):
-    msg = """Arguments with \* are optional, they come with default values
-g!flip [\*numFlips]: Flips a coin 'numFlips' amount of times
-g!flip2 [guess]: Flip a coin with a guess of 'h' or 't'
-g!roll [\*numRolls] [\*numSides]: Rolls a die with 'numSides' amount of sides 'numRolls' amount of times
-g!philo [\*numRolls] [\*findItem]: Open 'numRolls' amount of philosopher books or open until 'findItem' is rolled
-g!marvel [\*numRolls] [\*findItem]: Roll the marvel machine 'numRolls' amount of times or roll until 'findItem' is rolled
-g!stats [\*statsType]: Get your stats for (1) philo and marvel or (2) blackjack
+    msg = """__Arguments with \* are optional, they come with default values__
+g!flip [\*numFlips=1] [\*guess=None]: Flips a coin 'numFlips' amount of times or once with an initial guess
+g!roll [\*numRolls=1] [\*numSides=6]: Rolls a die with 'numSides' amount of sides 'numRolls' amount of times
+g!philo [\*numRolls=11] [\*findItem=None]: Open 'numRolls' amount of philosopher books or open until 'findItem' is rolled
+g!marvel [\*numRolls=11] [\*findItem=None]: Roll the marvel machine 'numRolls' amount of times or roll until 'findItem' is rolled
+g!stats [\*statsType=1]: Get your stats for (1) philo and marvel or (2) blackjack
 g!reset [statsType]: Reset your stats for (1) philo (2) marvel (3) blackjack or (4) all"""
     await ctx.send(msg)
 
@@ -70,12 +69,6 @@ async def flip(ctx, numFlips:typing.Optional[int] = 1, *, guess:str = None):
     else:
         msg = gamble_bot_methods.flipGuess(guess)
     await ctx.send(msg)
-
-#Flip a fair coin once with an initial guess
-# @bot.command()
-# async def flip2(ctx, guess:str = ""):
-#     msg = gamble_bot_methods.flipGuess(guess)
-#     await ctx.send(msg)
 
 #Roll a die with default number of sides of 6 and roll amount of 1
 #Maximum number of sides of 100 and roll amount of 100,000
