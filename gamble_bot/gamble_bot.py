@@ -15,11 +15,12 @@ async def on_ready():
 async def halp(ctx):
     msg = """__Arguments with \* are optional, they come with default values__
 g!flip [\*numFlips=1] [\*guess=None]: Flips a coin 'numFlips' amount of times or once with an initial guess
-g!roll [\*numRolls=1] [\*numSides=6]: Rolls a die with 'numSides' amount of sides 'numRolls' amount of times
-g!philo [\*numRolls=11] [\*findItem=None]: Open 'numRolls' amount of philosopher books or open until 'findItem' is rolled
 g!marvel [\*numRolls=11] [\*findItem=None]: Roll the marvel machine 'numRolls' amount of times or roll until 'findItem' is rolled
-g!stats [\*statsType=1]: Get your stats for (1) philo and marvel or (2) blackjack
-g!reset [statsType]: Reset your stats for (1) philo (2) marvel (3) blackjack or (4) all"""
+g!philo [\*numRolls=11] [\*findItem=None]: Open 'numRolls' amount of philosopher books or open until 'findItem' is rolled
+g!reset [statsType]: Reset your stats for (1) philo (2) marvel (3) blackjack or (4) all
+g!roll [\*numRolls=1] [\*numSides=6]: Rolls a die with 'numSides' amount of sides 'numRolls' amount of times
+g!star [startStar] [endStar] [\*itemLevel=150]: Starforce an item from 'startStar' to 'endStar'
+g!stats [\*statsType=1]: Get your stats for (1) philo and marvel or (2) blackjack"""
     await ctx.send(msg)
 
 #Get user stats for marvel and philo or blackjack
@@ -113,6 +114,15 @@ async def marvel(ctx, numRolls:typing.Optional[int] = 11, *, find_item:str = Non
     else:
         #These rolls are not recorded in stats
         msg = gamble_bot_methods.marvelFind(find_item)
+        await ctx.send(msg)
+
+#Star an item of specified level from the specified starting star to ending star
+@bot.command()
+async def star(ctx, startStar:int=None, endStar:int=None, itemLevel:typing.Optional[int]=150):
+    if startStar == None or endStar == None:
+        await ctx.send("Must provide a star number to start and end at")
+    else:
+        msg = gamble_bot_methods.starforceMessage(startStar, endStar, itemLevel)
         await ctx.send(msg)
 
 #Read in the unique bot ID and run bot

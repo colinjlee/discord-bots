@@ -4,7 +4,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 from pprint import pprint
 
 #Google sheets things
-scope = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/spreadsheets","https://www.googleapis.com/auth/drive.file","https://www.googleapis.com/auth/drive"]
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
+"https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
 client = gspread.authorize(creds)
 
@@ -121,6 +122,128 @@ for i in range(1, len(marvelUsersList)):
         else:
             for j in range(marvelLength+1, userLength+1):
                 marvelStatSheet.update_cell(i+1, j, "")
+
+#Starforcing stuff
+normal_sf_succ = [0.95, 0.90, 0.85, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60, 0.55, 0.45,
+0.35, 0.30, 0.30, 0.30, 0.30, 0.30, 0.30, 0.30, 0.30, 0.30, 0.30, 0.03, 0.02, 0.01]
+
+destroy_sf_succ = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.007, 0.014, 0.014, 0.021,
+0.021, 0.021, 0.028, 0.028, 0.07, 0.07, 0.194, 0.294, 0.396]
+
+keep_if_fail = {0, 1, 2, 3, 4, 5, 10, 15, 20}
+
+#Calculate meso cost and boom count for starforcing from 0 up to specified star
+#Return pair for meso cost and number of times the item boomed
+def starforceCost(startStar, endStar, itemLevel):
+    global normal_sf_succ, destroy_sf_succ, keep_if_fail
+
+    numFailed = 0
+    numBoomed = 0
+    mesoCost = 0
+    currStar = startStar
+
+    #Start starforcing
+    while currStar < endStar:
+        #Avoid crashing...stop at 250tril
+        if mesoCost >= 250000000000000:
+            return (mesoCost, numBoomed, -1)
+        #Calculate meso cost
+        #Formula for 0 to 10 stars is specifically for lvl 150 items since idk general one
+        #But cost of 0 to 10 is relatively low/negligible compared to 10+
+        if currStar < 10:
+            mesoCost += (136000 * (currStar + 1)) - (1000 * currStar)
+        elif currStar < 15:
+            mesoCost += 1000 + (itemLevel)**3 * (currStar + 1)**2.7 / 400
+        elif currStar < 18:
+            mesoCost += 1000 + (itemLevel)**3 * (currStar + 1)**2.7 / 120
+        elif currStar < 20:
+            mesoCost += 1000 + (itemLevel)**3 * (currStar + 1)**2.7 / 110
+        else:
+            mesoCost += 1000 + (itemLevel)**3 * (currStar + 1)**2.7 / 100
+
+        boom_if_greater = 1-destroy_sf_succ[currStar]
+        succAttempt = random.uniform(0,1)
+        #Failed twice in a row, 100% for next star
+        if numFailed == 2:
+            currStar += 1
+            numFailed = 0
+        #Success
+        elif succAttempt < normal_sf_succ[currStar]:
+            currStar += 1
+            numFailed = 0
+        #Fail, no boom
+        elif succAttempt < boom_if_greater:
+            #Keep current star or not
+            if not currStar in keep_if_fail:
+                currStar -= 1
+                numFailed += 1
+            else:
+                numFailed = 0
+        #Boom
+        else:
+            currStar = 0
+            numFailed = 0
+            numBoomed += 1
+
+    return (mesoCost, numBoomed, 1)
+
+#String message for starforcing
+def starforceMessage(startStar, endStar, itemLevel):
+    msg = ""
+
+    #Check legitimate starting star number
+    if startStar < 0:
+        #msg += "Starting star value must be non-negative\n"
+        startStar = 0
+
+    #Check item level correspondence with max star count
+    if itemLevel < 95 and endStar > 5:
+        msg += "**__Max number of stars for an item of level {} is 5__**\n".format(itemLevel)
+        endStar = 5
+    elif itemLevel < 108 and endStar > 8:
+        msg += "**__Max number of stars for an item of level {} is 8__**\n".format(itemLevel)
+        endStar = 8
+    elif itemLevel < 118 and endStar > 10:
+        msg += "**__Max number of stars for an item of level {} is 10__**\n".format(itemLevel)
+        endStar = 10
+    elif itemLevel < 128 and endStar > 15:
+        msg += "**__Max number of stars for an item of level {} is 15__**\n".format(itemLevel)
+        endStar = 15
+    elif itemLevel < 138 and endStar > 20:
+        msg += "**__Max number of stars for an item of level {} is 20__**\n".format(itemLevel)
+        endStar = 20
+    else:
+        #Check legitimate ending star number
+        if endStar > 25:
+            msg += "**__Max number of stars for an item of level {} is 25__**\n".format(itemLevel)
+            endStar = 25
+
+    #Check if anything to starforce
+    if startStar > 24 or startStar >= endStar:
+        return "Nothing more to starforce"
+
+    info = starforceCost(startStar, endStar, itemLevel)
+    mesoCost = info[0]
+    numBoomed = info[1]
+
+    suf = ""
+    #Trillion
+    if mesoCost >= 1000000000000:
+        suf = "(trillion)"
+    #Billion
+    elif mesoCost >= 1000000000:
+        suf = "(billion)"
+    #Million
+    elif mesoCost >= 1000000:
+        suf = "(million)"
+
+    if info[2] < 0:
+        msg += "**Note: Computation stopped early**\n"
+    else:
+        msg += "__Your stats to go from 0 to {} star on a level {} item:__\n".format(endStar, itemLevel)
+    msg += "Meso cost: {:,.0f} ".format(mesoCost) + suf + "\n"
+    msg += "Boom count: {:,.0f}\n".format(numBoomed)
+    return msg
 
 #Calculate philo or marvel spendings
 #Return result through pair
