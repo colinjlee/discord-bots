@@ -14,6 +14,7 @@ async def on_ready():
 @bot.command()
 async def halp(ctx):
     msg = """__Arguments with \* are optional, they come with default values__
+g!blackjack [\*betAmount=0]: Start a game of blackjack
 g!flip [\*numFlips=1] [\*guess=None]: Flips a coin 'numFlips' amount of times or once with an initial guess
 g!marvel [\*numRolls=11] [\*findItem=None]: Roll the marvel machine 'numRolls' amount of times or roll until 'findItem' is rolled
 g!philo [\*numRolls=11] [\*findItem=None]: Open 'numRolls' amount of philosopher books or open until 'findItem' is rolled
@@ -38,6 +39,14 @@ async def stats(ctx, statsType:typing.Optional[int] = 1):
     else:
         msg = "Invalid type"
     await ctx.send(msg)
+
+# #TODO: Start a game of blackjack
+# @bot.command()
+# async def blackjack(ctx, betAmount:typing.Optional[int] = 0):
+#     #Get user's name and unique ID
+#     userName = ctx.author.name
+#     userID = str(ctx.author.id)
+
 
 #Reset user stats for specified data
 #(1) philo (2) marvel (3) blackjack or (4) all
@@ -120,7 +129,7 @@ async def marvel(ctx, numRolls:typing.Optional[int] = 11, *, find_item:str = Non
 @bot.command()
 async def star(ctx, startStar:int=None, endStar:int=None, itemLevel:typing.Optional[int]=150):
     if startStar == None or endStar == None:
-        await ctx.send("Must provide a star number to start and end at")
+        await ctx.send("Must provide star numbers to start and end at")
     else:
         msg = gamble_bot_methods.starforceMessage(startStar, endStar, itemLevel)
         await ctx.send(msg)
