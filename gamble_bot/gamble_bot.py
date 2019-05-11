@@ -2,27 +2,75 @@ from discord.ext import commands
 import discord
 import random
 import typing
+#import schedule
+import asyncio
 import gamble_bot_methods
+import gamble_bot_stats
+import datetime
 
-bot = commands.Bot(command_prefix = "g!")
+bot = commands.Bot(command_prefix = "g!", case_insensitive = True)
+bot.remove_command("help")
+startTime = None
 
 @bot.event
 async def on_ready():
-    print("Everything is ready to go")
+    global startTime
+
+    startTime = datetime.datetime.now().replace(microsecond=0)
+    print("Gamble bot started running at", end=": ")
+    print(startTime)
+    print("Gamble bot is ready to go")
+    await passiveIncome()
+
+@bot.command()
+async def sTime(ctx):
+    msg = "Gamble bot has been live since "
+    msg += str(startTime)
+    await ctx.send(msg)
+
+@bot.command()
+async def lTime(ctx):
+    timeNow = datetime.datetime.now().replace(microsecond=0)
+    timeDiff = timeNow - startTime
+    timer = datetime.timedelta(seconds=timeDiff.total_seconds())
+    d = timer.days
+    m, s = divmod(timer.seconds, 60)
+    h, m = divmod(m, 60)
+    msg = "Gamble bot has been live for "
+    msg += "{:.0f} days, {:.0f} hours, {:.0f} minutes, and {:.0f} seconds".format(d, h, m, s)
+    await ctx.send(msg)
+
+@bot.command()
+async def money(ctx, amount):
+    userID = ctx.author.id
+    if userID == bot.owner_id:
+        gamble_bot_methods.giveEveryoneMoney(amount)
+
+#Passively give everyone (that has data) money for blackjack
+async def passiveIncome():
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        gamble_bot_methods.checkCreds()
+        gamble_bot_methods.giveEveryoneMoney(25)
+        #Idk how to get schedule to work
+        #schedule.every(2).minutes.do(gamble_bot_methods.giveEveryoneMoney, 50)
+        #schedule.run_continuously(60) #in seconds
+        await asyncio.sleep(3600) #1 hour
 
 #List of commands for the bot
 @bot.command()
-async def halp(ctx):
-    msg = """__Arguments with \* are optional, they come with default values__
-g!blackjack [\*betAmount=0]: Start a game of blackjack
-g!flip [\*numFlips=1] [\*guess=None]: Flips a coin 'numFlips' amount of times or once with an initial guess
-g!marvel [\*numRolls=11] [\*findItem=None]: Roll the marvel machine 'numRolls' amount of times or roll until 'findItem' is rolled
-g!philo [\*numRolls=11] [\*findItem=None]: Open 'numRolls' amount of philosopher books or open until 'findItem' is rolled
-g!reset [statsType]: Reset your stats for (1) philo (2) marvel (3) blackjack or (4) all
-g!roll [\*numRolls=1] [\*numSides=6]: Rolls a die with 'numSides' amount of sides 'numRolls' amount of times
-g!star [startStar] [endStar] [\*itemLevel=150]: Starforce an item from 'startStar' to 'endStar'
-g!stats [\*statsType=1]: Get your stats for (1) philo and marvel or (2) blackjack"""
-    await ctx.send(msg)
+async def help(ctx):
+    embed = discord.Embed(color = discord.Color.red())
+    embed.set_author(name = "Gamble Bot's Command List: Prefix 'g!'")
+    embed.add_field(name = "blackjack <Optional: betAmount=0>", value = "Start a game of blackjack")
+    embed.add_field(name = "flip <Optional: numFlips=1> <Optional: guess=None>", value = "Flips a coin 'numFlips' amount of times or once with an initial guess")
+    embed.add_field(name = "marvel <Optional: numRolls=11> <Optional: findItem=None>", value = "Roll the marvel machine 'numRolls' amount of times or roll until 'findItem' is rolled")
+    embed.add_field(name = "philo <Optional: numRolls=11> <Optional: findItem=None>", value = "Open 'numRolls' amount of philosopher books or open until 'findItem' is rolled")
+    embed.add_field(name = "reset <statsType>", value = "Reset your stats for (1) philo (2) marvel (3) blackjack or (4) all")
+    embed.add_field(name = "roll <Optional: numRolls=1> <Optional: numSides=6>", value = "Rolls a die with 'numSides' amount of sides 'numRolls' amount of times")
+    embed.add_field(name = "star <startStar> <endStar> <Optional: itemLevel=150>", value = "Starforce an item from 'startStar' to 'endStar'")
+    embed.add_field(name = "stats <Optional: statsType=1>", value = "Get your stats for (1) marvel and philo or (2) blackjack")
+    await ctx.send(embed=embed)
 
 #Get user stats for marvel and philo or blackjack
 #(1) for marvel/philo and (2) for blackjack, with default value of 1
@@ -40,13 +88,45 @@ async def stats(ctx, statsType:typing.Optional[int] = 1):
         msg = "Invalid type"
     await ctx.send(msg)
 
-# #TODO: Start a game of blackjack
-# @bot.command()
-# async def blackjack(ctx, betAmount:typing.Optional[int] = 0):
-#     #Get user's name and unique ID
-#     userName = ctx.author.name
-#     userID = str(ctx.author.id)
+#Start a game of blackjack
+@bot.command()
+async def blackjack(ctx, betAmount:typing.Optional[int] = 0):
+    #Get user's name and unique ID
+    userName = ctx.author.name
+    userID = str(ctx.author.id)
 
+    msg = gamble_bot_methods.bj(userName, userID, betAmount)
+    await ctx.send(msg)
+
+#Hit during a game of blackjack
+@bot.command()
+async def hit(ctx):
+    #Get user's name and unique ID
+    userName = ctx.author.name
+    userID = str(ctx.author.id)
+
+    msg = gamble_bot_methods.bjHit(userName, userID)
+    await ctx.send(msg)
+
+#Stand during a game of blackjack
+@bot.command()
+async def stand(ctx):
+    #Get user's name and unique ID
+    userName = ctx.author.name
+    userID = str(ctx.author.id)
+
+    msg = gamble_bot_methods.bjStand(userName, userID)
+    await ctx.send(msg)
+
+#Double down during a game of blackjack
+@bot.command()
+async def dd(ctx):
+    #Get user's name and unique ID
+    userName = ctx.author.name
+    userID = str(ctx.author.id)
+
+    msg = gamble_bot_methods.bjDoubleDown(userName, userID)
+    await ctx.send(msg)
 
 #Reset user stats for specified data
 #(1) philo (2) marvel (3) blackjack or (4) all
@@ -131,7 +211,7 @@ async def star(ctx, startStar:int=None, endStar:int=None, itemLevel:typing.Optio
     if startStar == None or endStar == None:
         await ctx.send("Must provide star numbers to start and end at")
     else:
-        msg = gamble_bot_methods.starforceMessage(startStar, endStar, itemLevel)
+        msg = await gamble_bot_methods.starforceMessage(startStar, endStar, itemLevel)
         await ctx.send(msg)
 
 #Read in the unique bot ID and run bot

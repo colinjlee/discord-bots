@@ -1,5 +1,6 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import asyncio
 
 #Google sheets things
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
@@ -45,27 +46,10 @@ class Gamble_Bot_Stats():
         #Align user stats to top row of items
         self.alignUserStats()
 
-    #Various getters
-    def getPhiloLuckyList(self):
-        return self.philoLuckyList
-
-    def getMarvelLuckyList(self):
-        return self.marvelLuckyList
-
-    def getPhiloList1(self):
-        return self.philoList1
-
-    def getPhiloList2(self):
-        return self.philoList2
-
-    def getMarvelList1(self):
-        return self.marvelList1
-
-    def getMarvelList2(self):
-        return self.marvelList2
-
-    def getMarvelList3(self):
-        return self.marvelList3
+    #Token expires after 1 hour
+    def checkCreds(self):
+        if creds.access_token_expired:
+            client.login()
 
     #Map marvel items to their column # and return the dictionary
     def mapMarvelItems(self):
@@ -194,7 +178,7 @@ class Gamble_Bot_Stats():
             userLength = len(self.philoStatSheet.row_values(i+1))
             if userLength < philoLength:
                 for j in range(userLength+1, philoLength+1):
-                    self.philoStatSheet.update_cell(i+1, j, "0")
+                    self.philoStatSheet.update_cell(i+1, j, 0)
             elif userLength > philoLength:
                 for j in range(philoLength+1, userLength+1):
                     self.philoStatSheet.update_cell(i+1, j, "")
@@ -204,7 +188,7 @@ class Gamble_Bot_Stats():
             userLength = len(self.marvelStatSheet.row_values(i+1))
             if userLength < marvelLength:
                 for j in range(userLength+1, marvelLength+1):
-                    self.marvelStatSheet.update_cell(i+1, j, "0")
+                    self.marvelStatSheet.update_cell(i+1, j, 0)
             elif userLength > marvelLength:
                 for j in range(marvelLength+1, userLength+1):
                     self.marvelStatSheet.update_cell(i+1, j, "")
@@ -214,13 +198,13 @@ class Gamble_Bot_Stats():
             userLength = len(self.bjStatSheet.row_values(i+1))
             if userLength < bjLength:
                 for j in range(userLength+1, bjLength+1):
-                    self.bjStatSheet.update_cell(i+1, j, "0")
+                    self.bjStatSheet.update_cell(i+1, j, 0)
             elif userLength > bjLength:
                 for j in range(bjLength+1, userLength+1):
                     self.bjStatSheet.update_cell(i+1, j, "")
 
     #Get user's row that has their stats for specified stat sheet
-    #initialize them if user doesn't exist in data
+    #Initialize them if user doesn't exist in data
     #Return the row number as int
     def getUserRow(self, userName, userID, strIndicator):
         #Get list of user IDs and search for userID
@@ -258,10 +242,14 @@ class Gamble_Bot_Stats():
                     self.marvelStatSheet.update_cell(1,userRow, userName)
                 elif strIndicator == "bj":
                     self.bjStatSheet.update_cell(1,userRow, userName)
-        #Add a new row for the new user in philo stats
+        #Add a new row for the new user
         else:
             newUser = [userName, userID]
-            newUser += ["0"]*(itemRowLength-2)
+            if strIndicator == "bj":
+                newUser += [100] #Starting money
+                newUser += [0]*(itemRowLength-3)
+            else:
+                newUser += [0]*(itemRowLength-2)
             if strIndicator == "p":
                 self.philoStatSheet.append_row(newUser)
             elif strIndicator == "m":
@@ -278,12 +266,60 @@ class Gamble_Bot_Stats():
         if strIndicator == "p":
             itemLoc = self.philoItemMapping[item]
             oldVal = int(self.philoStatSheet.cell(userRow, itemLoc).value)
-            self.philoStatSheet.update_cell(userRow, itemLoc, str(oldVal+incAmount))
+            self.philoStatSheet.update_cell(userRow, itemLoc, oldVal+incAmount)
         #Update marvel item
         else:
             itemLoc = self.marvelItemMapping[item]
             oldVal = int(self.marvelStatSheet.cell(userRow, itemLoc).value)
-            self.marvelStatSheet.update_cell(userRow, itemLoc, str(oldVal+incAmount))
+            self.marvelStatSheet.update_cell(userRow, itemLoc, oldVal+incAmount)
+
+    #Update user's blackjack stats
+    #Hard coded column location values...
+    def updateUserBJStat(self, userName, userID, game):
+        userRow = self.getUserRow(userName, userID, "bj")
+        userMoney = int(self.bjStatSheet.cell(userRow, 3).value)
+        userEarnings = int(self.bjStatSheet.cell(userRow, 4).value)
+        userGamesPlayed = int(self.bjStatSheet.cell(userRow, 6).value)
+        userBetAmount = game.player_bet
+
+        #User got blackjack
+        if game.player_bj == True:
+            userBlackjacks = int(self.bjStatSheet.cell(userRow, 5).value)
+            self.bjStatSheet.update_cell(userRow, 5, userBlackjacks+1)
+        #User won
+        if game.game_state == 0:
+            userGamesWon = int(self.bjStatSheet.cell(userRow, 7).value)
+            if userBetAmount > 0:
+                self.bjStatSheet.update_cell(userRow, 3, userMoney+userBetAmount)
+                self.bjStatSheet.update_cell(userRow, 4, userEarnings+userBetAmount)
+            self.bjStatSheet.update_cell(userRow, 6, userGamesPlayed+1)
+            self.bjStatSheet.update_cell(userRow, 7, userGamesWon+1)
+        #User lost
+        if game.game_state == 1:
+            userGamesLost = int(self.bjStatSheet.cell(userRow, 8).value)
+            if userBetAmount > 0:
+                self.bjStatSheet.update_cell(userRow, 3, userMoney-userBetAmount)
+                self.bjStatSheet.update_cell(userRow, 4, userEarnings-userBetAmount)
+            self.bjStatSheet.update_cell(userRow, 6, userGamesPlayed+1)
+            self.bjStatSheet.update_cell(userRow, 8, userGamesLost+1)
+        #User tied
+        if game.game_state == 2:
+            userGamesTied = int(self.bjStatSheet.cell(userRow, 9).value)
+            self.bjStatSheet.update_cell(userRow, 6, userGamesPlayed+1)
+            self.bjStatSheet.update_cell(userRow, 9, userGamesTied+1)
+
+    #Return user's money
+    def getUserMoney(self, userName, userID):
+        userRow = self.getUserRow(userName, userID, "bj")
+        return int(self.bjStatSheet.cell(userRow, 3).value)
+
+    #Give everyone in blackjack sheet money
+    def giveEveryoneMoney(self, amount):
+        moneyList = self.bjStatSheet.col_values(3)
+
+        for i in range(1, len(moneyList)):
+            oldVal = int(self.bjStatSheet.cell(i+1, 3).value)
+            self.bjStatSheet.update_cell(i+1, 3, oldVal+amount)
 
     #Calculate philo or marvel spendings
     #Return result through pair
@@ -360,9 +396,7 @@ class Gamble_Bot_Stats():
     #Return a string indicating success
     def resetStats(self, userName, userID, statsType):
         #Indicators of which stats to reset
-        philoReset = False
-        marvelReset = False
-        bjReset = False
+        philoReset = marvelReset = bjReset = False
 
         if statsType == 4:
             philoReset = marvelReset = bjReset = True
@@ -393,8 +427,8 @@ class Gamble_Bot_Stats():
             msg += "Successfully reset marvel machine stats\n"
         if bjReset == True:
             userRow = self.getUserRow(userName, userID, "bj")
-            userNew = [userName, userID]
-            userNew += [0] * int(len(self.bjItemRow)-2)
+            userNew = [userName, userID, 100]
+            userNew += [0] * int(len(self.bjItemRow)-3)
             self.bjStatSheet.delete_row(userRow)
             self.bjStatSheet.append_row(userNew)
             msg += "Successfully reset blackjack stats\n"

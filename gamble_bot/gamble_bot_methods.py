@@ -1,8 +1,17 @@
 import random
+import blackjack
+import asyncio
 import gamble_bot_stats
 
 #Things to do with stats on sheets
 stats = gamble_bot_stats.Gamble_Bot_Stats()
+
+#Check gspread creds
+def checkCreds():
+    stats.checkCreds()
+
+#Dictionary mapping unique user ID to a blackjack game
+bjGames = {}
 
 #Starforcing stuff
 normal_sf_succ = [0.95, 0.90, 0.85, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60, 0.55, 0.45,
@@ -15,7 +24,7 @@ keep_if_fail = {0, 1, 2, 3, 4, 5, 10, 15, 20}
 
 #Calculate meso cost and boom count for starforcing from 0 up to specified star
 #Return pair for meso cost and number of times the item boomed
-def starforceCost(startStar, endStar, itemLevel):
+async def starforceCost(startStar, endStar, itemLevel):
     global normal_sf_succ, destroy_sf_succ, keep_if_fail
 
     numFailed = 0
@@ -65,11 +74,12 @@ def starforceCost(startStar, endStar, itemLevel):
             currStar = 0
             numFailed = 0
             numBoomed += 1
+        await asyncio.sleep(0.01)
 
     return (mesoCost, numBoomed, 1)
 
 #String message for starforcing
-def starforceMessage(startStar, endStar, itemLevel):
+async def starforceMessage(startStar, endStar, itemLevel):
     msg = ""
 
     #Check legitimate starting star number
@@ -103,7 +113,7 @@ def starforceMessage(startStar, endStar, itemLevel):
     if startStar > 24 or startStar >= endStar:
         return "Nothing more to starforce"
 
-    info = starforceCost(startStar, endStar, itemLevel)
+    info = await starforceCost(startStar, endStar, itemLevel)
     mesoCost = info[0]
     numBoomed = info[1]
 
@@ -126,6 +136,90 @@ def starforceMessage(startStar, endStar, itemLevel):
     msg += "Boom count: {:,.0f}\n".format(numBoomed)
     return msg
 
+#Start a blackjack game for the user
+def bj(userName, userID, betAmount):
+    global bjGames
+
+    if userID in bjGames:
+        msg = "**__You're already in a game!__**\n"
+        msg += bjGames[userID].__str__()
+    else:
+        if betAmount < 0:
+            betAmount = 0
+
+        #Make sure player has enough money to bet
+        userMoney = stats.getUserMoney(userName, userID)
+        if userMoney < betAmount:
+            msg = "You do not have enough money to bet ${}\n".format(betAmount)
+            msg += "You currently have ${}".format(userMoney)
+        else:
+            newGame = blackjack.Blackjack(userName, betAmount)
+            bjGames[userID] = newGame
+            gameState = bjUpdate(userName, userID, newGame)
+            msg = newGame.__str__()
+            if gameState > 0:
+                msg += "\n**You currently have ${}**".format(userMoney)
+    return msg
+
+#Hit during a game of blackjack
+def bjHit(userName, userID):
+    if userID in bjGames:
+        game = bjGames[userID]
+        game.player_hit()
+        gameState = bjUpdate(userName, userID, game)
+        msg = game.__str__()
+        if gameState > 0:
+            userMoney = stats.getUserMoney(userName, userID)
+            msg += "\n**You currently have ${}**".format(userMoney)
+    else:
+        msg = "You are currently not in a game of blackjack"
+    return msg
+
+#Stand during a game of blackjack
+def bjStand(userName, userID):
+    if userID in bjGames:
+        game = bjGames[userID]
+        game.player_stand()
+        gameState = bjUpdate(userName, userID, game)
+        msg = game.__str__()
+        if gameState > 0:
+            userMoney = stats.getUserMoney(userName, userID)
+            msg += "\n**You currently have ${}**".format(userMoney)
+    else:
+        msg = "You are currently not in a game of blackjack"
+    return msg
+
+#Double down during a game of blackjack
+def bjDoubleDown(userName, userID):
+    if userID in bjGames:
+        game = bjGames[userID]
+        userMoney = stats.getUserMoney(userName, userID)
+        userBet = game.player_bet
+
+        #Make sure player has enough money to double bet
+        if userMoney < userBet*2:
+            msg = "You do not have enough money to double your current bet of ${}".format(userBet)
+        else:
+            game.player_dd()
+            gameState = bjUpdate(userName, userID, game)
+            msg = game.__str__()
+            if gameState > 0:
+                msg += "\n**You currently have ${}**".format(userMoney)
+    else:
+        msg = "You are currently not in a game of blackjack"
+    return msg
+
+#Update blackjack stats
+def bjUpdate(userName, userID, game):
+    global bjGames
+
+    if game.game_state != -1:
+        stats.updateUserBJStat(userName, userID, game)
+        del bjGames[userID]
+        return 1
+    else:
+        return -1
+
 #Return marvel/philo stats result through string
 def pmStats(userName, userID):
     return stats.pmStats(userName, userID)
@@ -139,6 +233,10 @@ def bjStats(userName, userID):
 #Return a string indicating success
 def resetStats(userName, userID, statsType):
     return stats.resetStats(userName, userID, statsType)
+
+#Give everyone in blackjack sheet money
+def giveEveryoneMoney(amount):
+    stats.giveEveryoneMoney(amount)
 
 #Returns a string of the notable items won from philo or marvel
 def notableItems(luckyList, gotLucky):
@@ -154,11 +252,11 @@ def notableItems(luckyList, gotLucky):
 #Roll a specified number of philosopher books, up to 165
 #Return the results through an array
 def philoRoll(userName, userID, numRolls):
-    philoList1 = stats.getPhiloList1()
-    philoList2 = stats.getPhiloList2()
+    philoList1 = stats.philoList1
+    philoList2 = stats.philoList2
 
     #Lucky items in philo
-    lucky = stats.getPhiloLuckyList()
+    lucky = stats.philoLuckyList
     gotLucky = False
     messages = []
     msg = ""
@@ -218,8 +316,8 @@ def philoRoll(userName, userID, numRolls):
 #These rolls are not recorded in stats
 #Return the results through a string
 def philoFind(item):
-    philoList1 = stats.getPhiloList1()
-    philoList2 = stats.getPhiloList2()
+    philoList1 = stats.philoList1
+    philoList2 = stats.philoList2
     counter = 0
     found = False
     item = item.strip().lower()
@@ -248,12 +346,12 @@ def philoFind(item):
 #Roll marvel a specified number of times, up to 110
 #Return the results through an array
 def marvelRoll(userName, userID, numRolls):
-    marvelList1 = stats.getMarvelList1()
-    marvelList2 = stats.getMarvelList2()
-    marvelList3 = stats.getMarvelList3()
+    marvelList1 = stats.marvelList1
+    marvelList2 = stats.marvelList2
+    marvelList3 = stats.marvelList3
 
     #Lucky items in marvel
-    lucky = stats.getMarvelLuckyList()
+    lucky = stats.marvelLuckyList
     gotLucky = False
     messages = []
     msg = ""
@@ -321,9 +419,9 @@ def marvelRoll(userName, userID, numRolls):
 #These rolls are not recorded in stats
 #Return results through a string
 def marvelFind(item):
-    marvelList1 = stats.getMarvelList1()
-    marvelList2 = stats.getMarvelList2()
-    marvelList3 = stats.getMarvelList3()
+    marvelList1 = stats.marvelList1
+    marvelList2 = stats.marvelList2
+    marvelList3 = stats.marvelList3
     counter = 0
     found = False
     item = item.strip().lower()
