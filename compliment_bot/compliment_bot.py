@@ -7,7 +7,7 @@ import datetime
 bot = commands.Bot(command_prefix = "!", case_insensitive = True)
 botName = "Compliment bot"
 channel = None
-count = 0
+counter = 0
 
 #Names to choose from
 names = ["John", "Jane"]
@@ -59,8 +59,8 @@ async def compliment(ctx):
 
 #Return a string containing a random compliment
 def getCompliment():
-    global compliments, usedCompliments, count
-    count += 1
+    global compliments, usedCompliments, counter
+    counter += 1
 
     #Empty list so reset the lists
     if not compliments:
@@ -79,9 +79,10 @@ def getCompliment():
 #Return compliment count for this session
 @bot.command()
 async def count(ctx):
-    global count, botName
+    global counter, botName
 
-    msg = "{} has given {} compliments during this session!".format(botName, count)
+    msg = "{} has given {} compliments during this session!".format(botName, counter)
+    await ctx.send(msg)
 
 # TODO: Add unique bot_id
 #bot.run(bot_id)
