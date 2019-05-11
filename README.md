@@ -7,5 +7,5 @@ TODO/Plans for gamble bot:
   2) Learn to read from google sheets and add in marvel/philo  
      - Add in marvel/philo to spin for a specific item  
   3) Add in ability to reset user stats  
-  4) Learn to make classes in python and add simple blackjack</strike>
+  4) Learn to make classes in python and add simple blackjack</strike>  
   Currently done with this bot
