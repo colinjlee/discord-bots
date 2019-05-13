@@ -50,26 +50,32 @@ async def money(ctx, amount):
 async def passiveIncome():
     await bot.wait_until_ready()
     while not bot.is_closed():
+        await asyncio.sleep(1800) #Check creds every 30 mins
+        gamble_bot_methods.checkCreds()
+        await asyncio.sleep(1800) #Give everyone money every hour
         gamble_bot_methods.checkCreds()
         gamble_bot_methods.giveEveryoneMoney(25)
         #Idk how to get schedule to work
         #schedule.every(2).minutes.do(gamble_bot_methods.giveEveryoneMoney, 50)
         #schedule.run_continuously(60) #in seconds
-        await asyncio.sleep(3600) #1 hour
 
 #List of commands for the bot
 @bot.command()
 async def help(ctx):
     embed = discord.Embed(color = discord.Color.red())
     embed.set_author(name = "Gamble Bot's Command List: Prefix 'g!'")
-    embed.add_field(name = "blackjack <Optional: betAmount=0>", value = "Start a game of blackjack")
-    embed.add_field(name = "flip <Optional: numFlips=1> <Optional: guess=None>", value = "Flips a coin 'numFlips' amount of times or once with an initial guess")
-    embed.add_field(name = "marvel <Optional: numRolls=11> <Optional: findItem=None>", value = "Roll the marvel machine 'numRolls' amount of times or roll until 'findItem' is rolled")
-    embed.add_field(name = "philo <Optional: numRolls=11> <Optional: findItem=None>", value = "Open 'numRolls' amount of philosopher books or open until 'findItem' is rolled")
-    embed.add_field(name = "reset <statsType>", value = "Reset your stats for (1) philo (2) marvel (3) blackjack or (4) all")
-    embed.add_field(name = "roll <Optional: numRolls=1> <Optional: numSides=6>", value = "Rolls a die with 'numSides' amount of sides 'numRolls' amount of times")
-    embed.add_field(name = "star <startStar> <endStar> <Optional: itemLevel=150>", value = "Starforce an item from 'startStar' to 'endStar'")
-    embed.add_field(name = "stats <Optional: statsType=1>", value = "Get your stats for (1) marvel and philo or (2) blackjack")
+    embed.add_field(name = "blackjack <Optional: betAmount=0>", value = "Start a game of blackjack", inline = False)
+    embed.add_field(name = "hit:", value = "During a game of blackjack, hit (draw a card)", inline = False)
+    embed.add_field(name = "stand:", value = "During a game of blackjack, stand (end your turn)", inline = False)
+    embed.add_field(name = "dd:", value = "During a game of blackjack (only after your initial 2 cards), double down (double your bet and draw one more card)", inline = False)
+    embed.add_field(name = "flip <Optional: numFlips=1> <Optional: guess=None>", value = "Flips a coin 'numFlips' amount of times or once with an initial guess", inline = False)
+    embed.add_field(name = "marvel <Optional: numRolls=11> <Optional: findItem=None>", value = "Roll the marvel machine 'numRolls' amount of times or roll until 'findItem' is rolled", inline = False)
+    embed.add_field(name = "philo <Optional: numRolls=11> <Optional: findItem=None>", value = "Open 'numRolls' amount of philosopher books or open until 'findItem' is rolled", inline = False)
+    embed.add_field(name = "reset <statsType>", value = "Reset your stats for (1) philo (2) marvel (3) blackjack or (4) all", inline = False)
+    embed.add_field(name = "roll <Optional: numRolls=1> <Optional: numSides=6>", value = "Rolls a die with 'numSides' amount of sides 'numRolls' amount of times", inline = False)
+    embed.add_field(name = "star <startStar> <endStar> <Optional: itemLevel=150>", value = "Starforce an item from 'startStar' to 'endStar'", inline = False)
+    embed.add_field(name = "stats <Optional: statsType=1>", value = "Get your stats for (1) marvel and philo or (2) blackjack", inline = False)
+    embed.set_footer(text = "Note: Commands aren't case sensitive")
     await ctx.send(embed=embed)
 
 #Get user stats for marvel and philo or blackjack
@@ -95,8 +101,10 @@ async def blackjack(ctx, betAmount:typing.Optional[int] = 0):
     userName = ctx.author.name
     userID = str(ctx.author.id)
 
-    msg = gamble_bot_methods.bj(userName, userID, betAmount)
+    msg, game = gamble_bot_methods.bj(userName, userID, betAmount)
     await ctx.send(msg)
+    if game != None:
+        gamble_bot_methods.bjUpdate(userName, userID, game)
 
 #Hit during a game of blackjack
 @bot.command()
@@ -105,8 +113,9 @@ async def hit(ctx):
     userName = ctx.author.name
     userID = str(ctx.author.id)
 
-    msg = gamble_bot_methods.bjHit(userName, userID)
+    msg, game = gamble_bot_methods.bjHit(userName, userID)
     await ctx.send(msg)
+    gamble_bot_methods.bjUpdate(userName, userID, game)
 
 #Stand during a game of blackjack
 @bot.command()
@@ -115,8 +124,9 @@ async def stand(ctx):
     userName = ctx.author.name
     userID = str(ctx.author.id)
 
-    msg = gamble_bot_methods.bjStand(userName, userID)
+    msg, game = gamble_bot_methods.bjStand(userName, userID)
     await ctx.send(msg)
+    gamble_bot_methods.bjUpdate(userName, userID, game)
 
 #Double down during a game of blackjack
 @bot.command()
@@ -125,8 +135,9 @@ async def dd(ctx):
     userName = ctx.author.name
     userID = str(ctx.author.id)
 
-    msg = gamble_bot_methods.bjDoubleDown(userName, userID)
+    msg, game = gamble_bot_methods.bjDoubleDown(userName, userID)
     await ctx.send(msg)
+    gamble_bot_methods.bjUpdate(userName, userID, game)
 
 #Reset user stats for specified data
 #(1) philo (2) marvel (3) blackjack or (4) all

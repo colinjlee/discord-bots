@@ -143,6 +143,7 @@ def bj(userName, userID, betAmount):
     if userID in bjGames:
         msg = "**__You're already in a game!__**\n"
         msg += bjGames[userID].__str__()
+        return (msg, bjGames[userID])
     else:
         if betAmount < 0:
             betAmount = 0
@@ -152,42 +153,50 @@ def bj(userName, userID, betAmount):
         if userMoney < betAmount:
             msg = "You do not have enough money to bet ${}\n".format(betAmount)
             msg += "You currently have ${}".format(userMoney)
+            return (msg, None)
         else:
             newGame = blackjack.Blackjack(userName, betAmount)
             bjGames[userID] = newGame
-            gameState = bjUpdate(userName, userID, newGame)
             msg = newGame.__str__()
-            if gameState > 0:
+
+            #Check game state after player move
+            if newGame.game_state != -1:
+                del bjGames[userID]
+                gameState = 1
                 msg += "\n**You currently have ${}**".format(userMoney)
-    return msg
+            return (msg, newGame)
 
 #Hit during a game of blackjack
 def bjHit(userName, userID):
     if userID in bjGames:
         game = bjGames[userID]
         game.player_hit()
-        gameState = bjUpdate(userName, userID, game)
         msg = game.__str__()
-        if gameState > 0:
+
+        #Check game state after player move
+        if game.game_state != -1:
+            del bjGames[userID]
             userMoney = stats.getUserMoney(userName, userID)
             msg += "\n**You currently have ${}**".format(userMoney)
     else:
         msg = "You are currently not in a game of blackjack"
-    return msg
+    return (msg, game)
 
 #Stand during a game of blackjack
 def bjStand(userName, userID):
     if userID in bjGames:
         game = bjGames[userID]
         game.player_stand()
-        gameState = bjUpdate(userName, userID, game)
         msg = game.__str__()
-        if gameState > 0:
+
+        #Check game state after player move
+        if game.game_state != -1:
+            del bjGames[userID]
             userMoney = stats.getUserMoney(userName, userID)
             msg += "\n**You currently have ${}**".format(userMoney)
     else:
         msg = "You are currently not in a game of blackjack"
-    return msg
+    return (msg, game)
 
 #Double down during a game of blackjack
 def bjDoubleDown(userName, userID):
@@ -201,24 +210,20 @@ def bjDoubleDown(userName, userID):
             msg = "You do not have enough money to double your current bet of ${}".format(userBet)
         else:
             game.player_dd()
-            gameState = bjUpdate(userName, userID, game)
             msg = game.__str__()
-            if gameState > 0:
+
+            #Check game state after player move
+            if game.game_state != -1:
+                del bjGames[userID]
                 msg += "\n**You currently have ${}**".format(userMoney)
     else:
         msg = "You are currently not in a game of blackjack"
-    return msg
+    return (msg, game)
 
 #Update blackjack stats
 def bjUpdate(userName, userID, game):
-    global bjGames
-
     if game.game_state != -1:
         stats.updateUserBJStat(userName, userID, game)
-        del bjGames[userID]
-        return 1
-    else:
-        return -1
 
 #Return marvel/philo stats result through string
 def pmStats(userName, userID):
@@ -259,7 +264,7 @@ def philoRoll(userName, userID, numRolls):
     lucky = stats.philoLuckyList
     gotLucky = False
     messages = []
-    msg = ""
+    msg = "**__{}'s philo run:__**\n".format(userName.title())
 
     #Get user info to record stats
     userRow = stats.getUserRow(userName, userID, "p")
@@ -354,7 +359,7 @@ def marvelRoll(userName, userID, numRolls):
     lucky = stats.marvelLuckyList
     gotLucky = False
     messages = []
-    msg = ""
+    msg = "**__{}'s marvel run:__**\n".format(userName.title())
 
     #Get user info to record stats
     userRow = stats.getUserRow(userName, userID, "m")

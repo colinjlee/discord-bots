@@ -344,15 +344,15 @@ class Gamble_Bot_Stats():
         userRowMarvel = self.getUserRow(userName, userID, "m")
         userStatsPhilo = self.philoStatSheet.row_values(userRowPhilo)
         userStatsMarvel = self.marvelStatSheet.row_values(userRowMarvel)
-        msg = "**__" + userName.title() + "\'s marvel and philo stats:__**\n\n"
+        msg = ""
 
         #Currently hard coded values of cell locations for marvel/philo
         #Marvel stats
         marvelRolls = int(userStatsMarvel[2])
-        costs = self.pmSpendings(marvelRolls, 1)
+        costs = self.pmSpendings(marvelRolls, "m")
         low_money = costs[0]
         high_money = costs[1]
-        msg += "**__Marvel Machine Statistics:__**\nTotal amount of spins: {} ".format(marvelRolls)
+        msg += "**__{}'s Marvel Machine Statistics:__**\nTotal amount of spins: {} ".format(userName.title(), marvelRolls)
         msg += "(${:,.2f} ~ ${:,.2f})\n".format(low_money, high_money)
 
         for i in range(3, len(self.marvelItemRow)):
@@ -363,10 +363,10 @@ class Gamble_Bot_Stats():
 
         #Philo stats
         philoRolls = int(userStatsPhilo[2])
-        costs = self.pmSpendings(philoRolls, 0)
+        costs = self.pmSpendings(philoRolls, "p")
         low_money = costs[0]
         high_money = costs[1]
-        msg += "\n**__Philosopher Book Statistics:__**\nTotal amount of books: {} ".format(philoRolls)
+        msg += "\n**__{}'s Philosopher Book Statistics:__**\nTotal amount of books: {} ".format(userName.title(), philoRolls)
         msg += "(${:,.2f} ~ ${:,.2f})\n".format(low_money, high_money)
 
         for i in range(3, len(self.philoItemRow)):
@@ -381,7 +381,7 @@ class Gamble_Bot_Stats():
     def bjStats(self, userName, userID):
         userRowBJ = self.getUserRow(userName, userID, "bj")
         userStatsBJ = self.bjStatSheet.row_values(userRowBJ)
-        msg = "**__" + userName.title() + "\'s blackjack stats:__**\n"
+        msg = "**__{}'s Blackjack Statistics:__**\n".format(userName.title())
 
         #Currently hard coded values of cell locations for blackjack
         for i in range(2, len(self.bjItemRow)):
