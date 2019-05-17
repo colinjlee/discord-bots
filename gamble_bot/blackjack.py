@@ -42,7 +42,7 @@ class Blackjack:
         elif self.game_state == 1:
             msg += "\n\n**You lost ${}**".format(self.player_bet)
         elif self.game_state == 2:
-            msg += "\n\n**You tied"
+            msg += "\n\n**You tied**"
 
         return msg
 

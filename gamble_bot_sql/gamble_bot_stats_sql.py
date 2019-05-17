@@ -213,6 +213,7 @@ class Gamble_Bot_Stats_SQL():
             if game.game_state == 0:
                 self.statsCursor.execute("""UPDATE bj_stats
                                         SET games_played = IFNULL(games_played, 0) + 1,
+                                        games_won = IFNULL(games_won, 0) + 1,
                                         current_money = IFNULL(current_money, 0) + :bet,
                                         total_earnings = IFNULL(total_earnings, 0) + :bet
                                         WHERE user_id = :id""",
@@ -221,6 +222,7 @@ class Gamble_Bot_Stats_SQL():
             elif game.game_state == 1:
                 self.statsCursor.execute("""UPDATE bj_stats
                                         SET games_played = IFNULL(games_played, 0) + 1,
+                                        games_lost = IFNULL(games_won, 0) + 1,
                                         current_money = IFNULL(current_money, 0) - :bet,
                                         total_earnings = IFNULL(total_earnings, 0) - :bet
                                         WHERE user_id = :id""",
@@ -228,14 +230,10 @@ class Gamble_Bot_Stats_SQL():
             # User tied
             elif game.game_state == 2:
                 self.statsCursor.execute("""UPDATE bj_stats
-                                        SET games_played = IFNULL(games_played, 0) + 1
+                                        SET games_played = IFNULL(games_played, 0) + 1,
+                                        games_tied = IFNULL(games_won, 0) + 1
                                         WHERE user_id = :id""",
                                         {"id":userID})
-            # Update total games played
-            self.statsCursor.execute("""UPDATE bj_stats
-                                    SET games_played = IFNULL(games_played, 0) + 1
-                                    WHERE user_id = :id""",
-                                    {"id":userID})
             # Update name if needed
             self.statsCursor.execute("""UPDATE bj_stats
                                     SET user_name = :name
