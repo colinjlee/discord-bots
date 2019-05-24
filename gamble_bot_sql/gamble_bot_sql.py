@@ -49,10 +49,7 @@ async def money(ctx, amount):
 async def passiveIncome():
     await bot.wait_until_ready()
     while not bot.is_closed():
-        await asyncio.sleep(1800) #Check creds every 30 mins
-        gamble_bot_methods_sql.checkCreds()
-        await asyncio.sleep(1800) #Give everyone money every hour
-        gamble_bot_methods_sql.checkCreds()
+        await asyncio.sleep(3600) #Give everyone money every hour
         gamble_bot_methods_sql.giveEveryoneMoney(25)
         #Idk how to get schedule to work
         #schedule.every(2).minutes.do(gamble_bot_methods.giveEveryoneMoney, 50)
@@ -63,15 +60,15 @@ async def passiveIncome():
 async def help(ctx):
     embed = discord.Embed(color = discord.Color.red())
     embed.set_author(name = "Gamble Bot's Command List: Prefix 'g!'")
-    embed.add_field(name = "af <startLvl> <endLvl> <currProgress> <dailyRate>", value = "Calculate days needed to max arcane force symbols", inline = False)
+    embed.add_field(name = "af <startLvl> <endLvl> <currProgress> <Optional: dailyRate=8>", value = "Calculate days needed to max arcane force symbols", inline = False)
     embed.add_field(name = "blackjack <Optional: betAmount=0>", value = "Start a game of blackjack", inline = False)
     embed.add_field(name = "hit:", value = "During a game of blackjack, hit (draw a card)", inline = False)
     embed.add_field(name = "stand:", value = "During a game of blackjack, stand (end your turn)", inline = False)
     embed.add_field(name = "dd:", value = "During a game of blackjack (only after your initial 2 cards), double down (double your bet and draw one more card)", inline = False)
     embed.add_field(name = "flip <Optional: numFlips=1> <Optional: guess=None>", value = "Flips a coin 'numFlips' amount of times or once with an initial guess", inline = False)
-    embed.add_field(name = "marvel <Optional: numRolls=11> <Optional: findItem=None>", value = "Roll the marvel machine 'numRolls' amount of times or roll until 'findItem' is rolled", inline = False)
-    embed.add_field(name = "philo <Optional: numRolls=11> <Optional: findItem=None>", value = "Open 'numRolls' amount of philosopher books or open until 'findItem' is rolled", inline = False)
-    embed.add_field(name = "reset <statsType>", value = "Reset your stats for (1) philo (2) marvel (3) blackjack or (4) all", inline = False)
+    embed.add_field(name = "marvel <Optional: numRolls=11> <Optional: findItem=None>", value = "Roll the marvel machine 'numRolls' amount of times or roll until 'findItem' is rolled\nCurrent rates: http://maplestory.nexon.net/micro-site/39184", inline = False)
+    embed.add_field(name = "philo <Optional: numRolls=11> <Optional: findItem=None>", value = "Open 'numRolls' amount of philosopher books or open until 'findItem' is rolled\nCurrent rates: http://maplestory.nexon.net/micro-site/42030", inline = False)
+    embed.add_field(name = "reset <statsType>", value = "Reset your stats for (1) marvel (2) philo (3) blackjack or (4) all", inline = False)
     embed.add_field(name = "roll <Optional: numRolls=1> <Optional: numSides=6>", value = "Rolls a die with 'numSides' amount of sides 'numRolls' amount of times", inline = False)
     embed.add_field(name = "star <startStar> <endStar> <Optional: itemLevel=150> <Optional: safeGuard=n>", value = "Starforce an item from 'startStar' to 'endStar'", inline = False)
     embed.add_field(name = "stats <Optional: statsType=1>", value = "Get your stats for (1) marvel and philo or (2) blackjack", inline = False)
@@ -80,7 +77,7 @@ async def help(ctx):
 
 # Calculate days needed to max arcane force symbols
 @bot.command()
-async def af(ctx, startLvl:int, endLvl:int, currProgress:int, dailyRate:int):
+async def af(ctx, startLvl:int, endLvl:int, currProgress:int, dailyRate:int=8):
     msg = gamble_bot_methods_sql.af(startLvl, endLvl, currProgress, dailyRate)
     await ctx.send(msg)
 

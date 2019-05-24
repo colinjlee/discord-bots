@@ -3,6 +3,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import asyncio
 import sqlite3
 
+
 #Google sheets things
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
 "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
@@ -18,10 +19,8 @@ class Gamble_Bot_Stats_SQL():
         # Google sheets containing public rates of philosopher book and marvel machine
         # Philo rates: http://maplestory.nexon.net/micro-site/42030
         # Marvel rates: http://maplestory.nexon.net/micro-site/39184
-        self.philoSheet = client.open("Philosopher Book Rates").worksheets()
-        self.philoSheet = self.philoSheet[-1]
-        self.marvelSheet = client.open("Marvel Machine Rates").worksheets()
-        self.marvelSheet = self.marvelSheet[-1]
+        self.philoSheet = client.open("Philosopher Book Rates").worksheets()[-1]
+        self.marvelSheet = client.open("Marvel Machine Rates").worksheets()[-1]
 
         # List of marvel/philo items to roll from
         self.philoList1 = self.makePhiloList1()
@@ -39,9 +38,11 @@ class Gamble_Bot_Stats_SQL():
         self.marvelLuckyList = {k: 0 for k in self.marvelItemMapping.keys()}
         self.philoLuckyList = {k: 0 for k in self.philoItemMapping.keys()}
 
+
     # Close the connections
     def __del__(self):
         self.statsConnector.close()
+
 
     # Map marvel attributes to official item name
     # Return the mapping
@@ -60,6 +61,7 @@ class Gamble_Bot_Stats_SQL():
             mapping[newWord] = word
         return mapping
 
+
     # Map philo attributes to official item name
     # Return the mapping
     def mapPhiloItems(self):
@@ -76,6 +78,7 @@ class Gamble_Bot_Stats_SQL():
             mapping[newWord] = word
         return mapping
 
+
     # Map bj attributes to prettier text
     # Return the mapping
     def mapBJItems(self):
@@ -88,6 +91,7 @@ class Gamble_Bot_Stats_SQL():
             newWord = word.replace("_", " ").title()
             mapping[newWord] = word
         return mapping
+
 
     # Return list of philo items possible to get from list 1
     def makePhiloList1(self):
@@ -107,6 +111,7 @@ class Gamble_Bot_Stats_SQL():
 
         return list1
 
+
     # Return list of philo items possible to get from list 2
     def makePhiloList2(self):
         list2 = []
@@ -121,6 +126,7 @@ class Gamble_Bot_Stats_SQL():
             list2 += [item]*int(rate)
 
         return list2
+
 
     # Return list of marvel items possible to get from list 1
     def makeMarvelList1(self):
@@ -139,6 +145,7 @@ class Gamble_Bot_Stats_SQL():
 
         return list1
 
+
     # Return list of marvel items possible to get from list 2
     def makeMarvelList2(self):
         list2 = []
@@ -153,6 +160,7 @@ class Gamble_Bot_Stats_SQL():
 
         return list2
 
+
     # Return list of marvel items possible to get from list 3
     def makeMarvelList3(self):
         list3 = []
@@ -166,6 +174,7 @@ class Gamble_Bot_Stats_SQL():
             list3 += [item]*int(rate)
 
         return list3
+
 
     # Update user's item stats for philo/marvel
     def updateUserItemStat(self, userName, userID, item, incAmount, strIndicator):
@@ -196,6 +205,7 @@ class Gamble_Bot_Stats_SQL():
                                         SET user_name = :name
                                         WHERE user_id = :id AND user_name <> :name""",
                                         {"id":userID, "name":userName})
+
 
     # Update user's blackjack stats
     def updateUserBJStat(self, userName, userID, game):
@@ -240,6 +250,7 @@ class Gamble_Bot_Stats_SQL():
                                     WHERE user_id = :id AND user_name <> :name""",
                                     {"id":userID, "name":userName})
 
+
     # Return user's current money
     def getUserMoney(self, userName, userID):
         # Check if data exists
@@ -251,11 +262,13 @@ class Gamble_Bot_Stats_SQL():
                                     {"id":userID})
             return self.statsCursor.fetchone()[0]
 
+
     # Give everyone in blackjack sheet money
     def giveEveryoneMoney(self, amount):
         with self.statsConnector:
             self.statsCursor.execute("UPDATE bj_stats SET current_money = current_money + :amount",
                                 {"amount":amount})
+
 
     # Calculate philo or marvel spendings
     # Return result through pair
@@ -271,6 +284,7 @@ class Gamble_Bot_Stats_SQL():
         low_money = int(numRolls/11)*int(price*10) + (numRolls%11)*price
         high_money = numRolls*price
         return (low_money, high_money)
+
 
     # Philo and marvel stats
     # Return result through string
@@ -323,6 +337,7 @@ class Gamble_Bot_Stats_SQL():
 
         return msg
 
+
     # Return result through string
     def bjStats(self, userName, userID):
         self.addNewUser(userName, userID, "bj")
@@ -346,6 +361,7 @@ class Gamble_Bot_Stats_SQL():
                 msg += "{}: {:,d}\n".format(item, userAmount)
 
             return msg
+
 
     # Reset user stats for specified data
     # (1) marvel (2) philo (3) blackjack or (4) all
@@ -404,6 +420,7 @@ class Gamble_Bot_Stats_SQL():
                     msg += "Successfully reset blackjack stats\n"
 
         return msg[:-1]
+
 
     # Add new user to database if not inside already
     # (p) philo (m) marvel (bj) blackjack
