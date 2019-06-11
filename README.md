@@ -9,8 +9,8 @@ Note that gamble bot sql version still pulls some info (marvel/philo rates) from
   2) Learn to read from google sheets and add in marvel/philo  
      - Add in marvel/philo to spin for a specific item  
   3) Add in ability to reset user stats  
-  4) Learn to make classes in python and add simple blackjack</strike>
+  4) Learn to make classes in python and add simple blackjack </strike>
 
-Plans for future bots:
+Plans for future bots: Added hilla bot for versus/true hilla timers
 
-1\) TTS bot? that can join a voice channel and tell you warnings for bosses
+<strike> 1) TTS bot? that can join a voice channel and tell you warnings for bosses </strike>
