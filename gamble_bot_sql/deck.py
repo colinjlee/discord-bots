@@ -1,6 +1,7 @@
 import card
 import random
 
+
 class Deck:
     def __init__(self):
         self.unused_cards = self.make_standard_deck()
@@ -10,16 +11,18 @@ class Deck:
         return "<Deck: unused_cards:{} used_cards:{}>".format(self.unused_cards, self.used_cards)
 
     def __str__(self):
-        print("Unused cards:")
-        for playing_card in self.unused_cards:
-            print(playing_card)
-        print("Used cards:")
-        for playing_card in self.used_cards:
-            print(playing_card)
-        return ""
+        msg = ["Unused cards:\n"]
 
-    #Makes a standard 52 card deck
-    #Return a list of cards
+        for playing_card in self.unused_cards:
+            msg.append(f'{playing_card}\n')
+        msg.append("Used cards:\n")
+        for playing_card in self.used_cards:
+            msg.append(f'{playing_card}\n')
+
+        return msg
+
+    # Makes a standard 52 card deck
+    # Return a list of cards
     def make_standard_deck(self):
         deck = []
         suits = ["Clubs", "Diamonds", "Hearts", "Spades"]
@@ -33,18 +36,18 @@ class Deck:
 
         return deck
 
-    #Reset the deck
+    # Reset the deck
     def reset(self):
         self.unused_cards = self.make_standard_deck()
         self.used_cards = []
 
-    #Shuffle cards
+    # Shuffle cards
     def shuffle(self):
         random.shuffle(self.unused_cards)
 
-    #Deal the specified number of cards, if available
-    #If not enough cards in deck to deal, return empty list
-    #Update used_cards and unused_cards
+    # Deal the specified number of cards, if available
+    # If not enough cards in deck to deal, return empty list
+    # Update used_cards and unused_cards
     def deal(self, num_cards):
         if len(self.unused_cards) < num_cards:
             return []

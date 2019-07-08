@@ -2,11 +2,11 @@ import random
 import blackjack
 import asyncio
 from math import ceil
-from gamble_bot_stats_sql import Gamble_Bot_Stats_SQL
+from gamble_bot_stats_sql import GambleBotStatsSQL
 
 
 # Things to do with stats
-stats = Gamble_Bot_Stats_SQL()
+stats = GambleBotStatsSQL()
 
 # Dictionary mapping unique user ID to a blackjack game
 bjGames = {}
@@ -26,491 +26,483 @@ keep_if_fail = {0, 1, 2, 3, 4, 5, 10, 15, 20}
 
 # Calculate meso cost and boom count for starforcing from 0 up to specified star
 # Return pair for meso cost and number of times the item boomed
-async def starforceCost(startStar, endStar, itemLevel, safeGuardBool):
+async def starforce_cost(start_star, end_star, item_level, safeguard_bool):
     global normal_sf_succ, destroy_sf_succ, keep_if_fail
 
-    numFailed = 0
-    numBoomed = 0
-    mesoCost = 0
-    totalFail = 0
-    totalSucc = 0
-    currStar = startStar
+    meso_limit = 250000000000000  # 250 tril
+    num_failed = 0
+    num_boomed = 0
+    meso_cost = 0
+    total_fail = 0
+    total_succ = 0
+    curr_star = start_star
 
     # Start starforcing
-    while currStar < endStar:
-        # Avoid crashing...stop at 250tril
-        if mesoCost >= 250000000000000:
-            return (mesoCost, numBoomed, totalSucc, totalFail, -1)
+    while curr_star < end_star:
+        # Avoid crashing...
+        if meso_cost >= meso_limit:
+            return meso_cost, num_boomed, total_succ, total_fail, -1
         # Calculate meso cost
         # Formula for 0 to 10 stars is specifically for lvl 150 items since idk general one
         # But cost of 0 to 10 is relatively low/negligible compared to 10+
-        if currStar < 10:
-            cost = (136000 * (currStar + 1)) - (1000 * currStar)
-        elif currStar < 15:
-            cost = 1000 + (itemLevel)**3 * (currStar + 1)**2.7 / 400
-        elif currStar < 18:
-            cost = 1000 + (itemLevel)**3 * (currStar + 1)**2.7 / 120
-        elif currStar < 20:
-            cost = 1000 + (itemLevel)**3 * (currStar + 1)**2.7 / 110
+        if curr_star < 10:
+            cost = (136000 * (curr_star + 1)) - (1000 * curr_star)
+        elif curr_star < 15:
+            cost = 1000 + item_level**3 * (curr_star + 1)**2.7 / 400
+        elif curr_star < 18:
+            cost = 1000 + item_level**3 * (curr_star + 1)**2.7 / 120
+        elif curr_star < 20:
+            cost = 1000 + item_level**3 * (curr_star + 1)**2.7 / 110
         else:
-            cost = 1000 + (itemLevel)**3 * (currStar + 1)**2.7 / 100
+            cost = 1000 + item_level**3 * (curr_star + 1)**2.7 / 100
         # Safeguard from 12 to 17 doubles cost
-        if currStar >= 12 and currStar <= 16 and safeGuardBool == True:
+        if 12 <= curr_star <= 16 and safeguard_bool:
             cost *= 2
-        mesoCost += cost
+        meso_cost += cost
 
         # Safeguarding until 17 or not
-        if safeGuardBool == True:
-            boom_if_greater = 1 - guard_boom_sf_succ[currStar]
+        if safeguard_bool:
+            boom_if_greater = 1 - guard_boom_sf_succ[curr_star]
         else:
-            boom_if_greater = 1 - destroy_sf_succ[currStar]
-        succAttempt = random.uniform(0, 1)
+            boom_if_greater = 1 - destroy_sf_succ[curr_star]
+        succ_attempt = random.uniform(0, 1)
         # Failed twice in a row, 100% for next star
-        if numFailed == 2:
-            currStar += 1
-            numFailed = 0
+        if num_failed == 2:
+            curr_star += 1
+            num_failed = 0
         # Success
-        elif succAttempt < normal_sf_succ[currStar]:
-            currStar += 1
-            numFailed = 0
-            totalSucc += 1
+        elif succ_attempt < normal_sf_succ[curr_star]:
+            curr_star += 1
+            num_failed = 0
+            total_succ += 1
         # Fail, no boom
-        elif succAttempt < boom_if_greater:
-            totalFail += 1
+        elif succ_attempt < boom_if_greater:
+            total_fail += 1
             # Keep current star or not
-            if not currStar in keep_if_fail:
-                currStar -= 1
-                numFailed += 1
+            if curr_star not in keep_if_fail:
+                curr_star -= 1
+                num_failed += 1
             else:
-                numFailed = 0
+                num_failed = 0
         # Boom
         else:
-            currStar = 0
-            numFailed = 0
-            numBoomed += 1
+            curr_star = 0
+            num_failed = 0
+            num_boomed += 1
         await asyncio.sleep(0.01)
 
-    return (mesoCost, numBoomed, totalSucc, totalFail, 1)
+    return meso_cost, num_boomed, total_succ, total_fail, 1
 
 
 # String message for starforcing
-async def starforceMessage(userName, startStar, endStar, itemLevel, safeGuard):
-    msg = ""
+async def starforce_message(username, start_star, end_star, item_level, safeguard):
+    msg = []
 
     # Check legitimate starting star number
-    if startStar < 0:
-        #msg += "Starting star value must be non-negative\n"
-        startStar = 0
+    if start_star < 0:
+        start_star = 0
 
     # Check item level correspondence with max star count
-    if itemLevel < 95 and endStar > 5:
-        msg += "**__Max number of stars for an item of level {} is 5__**\n".format(
-            itemLevel)
-        endStar = 5
-    elif itemLevel < 108 and endStar > 8:
-        msg += "**__Max number of stars for an item of level {} is 8__**\n".format(
-            itemLevel)
-        endStar = 8
-    elif itemLevel < 118 and endStar > 10:
-        msg += "**__Max number of stars for an item of level {} is 10__**\n".format(
-            itemLevel)
-        endStar = 10
-    elif itemLevel < 128 and endStar > 15:
-        msg += "**__Max number of stars for an item of level {} is 15__**\n".format(
-            itemLevel)
-        endStar = 15
-    elif itemLevel < 138 and endStar > 20:
-        msg += "**__Max number of stars for an item of level {} is 20__**\n".format(
-            itemLevel)
-        endStar = 20
+    if item_level < 95 and end_star > 5:
+        end_star = 5
+    elif item_level < 108 and end_star > 8:
+        end_star = 8
+    elif item_level < 118 and end_star > 10:
+        end_star = 10
+    elif item_level < 128 and end_star > 15:
+        end_star = 15
+    elif item_level < 138 and end_star > 20:
+        end_star = 20
     else:
         # Check legitimate ending star number
-        if endStar > 25:
-            msg += "**__Max number of stars for an item of level {} is 25__**\n".format(
-                itemLevel)
-            endStar = 25
-
+        if end_star > 25:
+            end_star = 25
+            
+    msg.append(f'**__Max number of stars for an item of level {item_level} is {end_star}__**\n')
+    
     # Check if anything to starforce
-    if startStar > 24 or startStar >= endStar:
-        return "Nothing more to starforce"
+    if start_star > 24 or start_star >= end_star:
+        return 'Nothing more to starforce'
 
-    if safeGuard == "y":
-        info = await starforceCost(startStar, endStar, itemLevel, True)
+    if safeguard == 'y':
+        info = await starforce_cost(start_star, end_star, item_level, True)
     else:
-        info = await starforceCost(startStar, endStar, itemLevel, False)
-    mesoCost = info[0]
-    numBoomed = info[1]
-    totalSucc = info[2]
-    totalFail = info[3]
-    totalTries = totalSucc + totalFail
+        info = await starforce_cost(start_star, end_star, item_level, False)
+    meso_cost = info[0]
+    num_boomed = info[1]
+    total_succ = info[2]
+    total_fail = info[3]
+    total_tries = total_succ + total_fail
 
-    suf = ""
+    suffix = ''
     # Trillion
-    if mesoCost >= 1000000000000:
-        suf = "(trillion)"
+    if meso_cost >= 1000000000000:
+        suffix = '(trillion)'
     # Billion
-    elif mesoCost >= 1000000000:
-        suf = "(billion)"
+    elif meso_cost >= 1000000000:
+        suffix = '(billion)'
     # Million
-    elif mesoCost >= 1000000:
-        suf = "(million)"
+    elif meso_cost >= 1000000:
+        suffix = '(million)'
 
     # Check if meso cap reached
     if info[4] < 0:
-        msg += "**Note: Computation stopped early**\n"
+        msg.append('**Note: Computation stopped early**\n')
     else:
-        msg += "__{}'s stats to go from {} to {} star on a level {} item".format(
-            userName.title(), startStar, endStar, itemLevel)
-        if safeGuard == "y":
-            msg += " while safeguarding:__\n"
+        msg.append(f"__{username.title()}'s stats to go from {start_star} to {end_star} star on a level {item_level} item")
+        if safeguard == 'y':
+            msg.append(' while safeguarding:__\n')
         else:
-            msg += " without safeguarding:__\n"
-    msg += "Meso cost: {:,.0f} ".format(mesoCost) + suf + "\n"
-    msg += "Boom count: {:,.0f}\n".format(numBoomed)
-    msg += "Total successes: {:,.0f}\n".format(totalSucc)
-    msg += "Total failures: {:,.0f}\n".format(totalFail)
-    msg += "Total tries: {:,.0f}\n".format(totalTries)
-    return msg
+            msg.append(' without safeguarding:__\n')
+    msg.append(f'Meso cost: {meso_cost:,.0f} {suffix}\n')
+    msg.append(f'Boom count: {num_boomed:,.0f}\n')
+    msg.append(f'Total successes: {total_succ:,.0f}\n')
+    msg.append(f'Total failures: {total_fail:,.0f}\n')
+    msg.append(f'Total tries: {total_tries:,.0f}\n')
+    return ''.join(msg)
 
 
 # Start a blackjack game for the user
-def bj(userName, userID, betAmount):
+def bj(username, user_id, bet_amt):
     global bjGames
 
-    if userID in bjGames:
-        msg = "**__You're already in a game!__**\n"
-        msg += bjGames[userID].__str__()
-        return (msg, bjGames[userID])
+    if user_id in bjGames:
+        msg = ["**__You're already in a game!__**\n", str(bjGames[user_id])]
+        return ''.join(msg), bjGames[user_id]
     else:
-        if betAmount < 0:
-            betAmount = 0
+        if bet_amt < 0:
+            bet_amt = 0
 
         # Make sure player has enough money to bet
-        userMoney = stats.getUserMoney(userName, userID)
-        if userMoney < betAmount:
-            msg = "You do not have enough money to bet ${}\n".format(betAmount)
-            msg += "You currently have ${}".format(userMoney)
-            return (msg, None)
+        user_money = stats.get_user_money(username, user_id)
+        if user_money < bet_amt:
+            msg = [f'You do not have enough money to bet ${bet_amt}\n', f'You currently have ${user_money}']
+            return ''.join(msg), None
         else:
-            newGame = blackjack.Blackjack(userName, betAmount)
-            bjGames[userID] = newGame
-            msg = newGame.__str__()
+            new_bj_game = blackjack.Blackjack(username, bet_amt)
+            bjGames[user_id] = new_bj_game
+            msg = [str(new_bj_game)]
 
             # Check game state after player move
-            if newGame.game_state != -1:
-                del bjGames[userID]
-                gameState = 1
-                msg += "\n**You currently have ${}**".format(userMoney)
-            return (msg, newGame)
+            if new_bj_game.game_state != -1:
+                del bjGames[user_id]
+                new_bj_game.game_state = 1
+                msg.append(f'\n**You currently have ${user_money}**')
+            return ''.join(msg), new_bj_game
 
 
 # Hit during a game of blackjack
-def bjHit(userName, userID):
-    if userID in bjGames:
-        game = bjGames[userID]
+def bj_hit(username, user_id):
+    game = bjGames.get(user_id)
+    
+    if user_id in bjGames:
         game.player_hit()
-        msg = game.__str__()
+        msg = [str(game)]
 
         # Check game state after player move
         if game.game_state != -1:
-            del bjGames[userID]
-            userMoney = stats.getUserMoney(userName, userID)
-            msg += "\n**You currently have ${}**".format(userMoney)
+            del bjGames[user_id]
+            user_money = stats.get_user_money(username, user_id)
+            msg.append(f'\n**You currently have ${user_money}**')
     else:
-        msg = "You are currently not in a game of blackjack"
-    return (msg, game)
+        msg = ['You are currently not in a game of blackjack']
+    return ''.join(msg), game
 
 
 # Stand during a game of blackjack
-def bjStand(userName, userID):
-    if userID in bjGames:
-        game = bjGames[userID]
+def bj_stand(username, user_id):
+    game = bjGames.get(user_id)
+    
+    if user_id in bjGames:
         game.player_stand()
-        msg = game.__str__()
+        msg = [str(game)]
 
         # Check game state after player move
         if game.game_state != -1:
-            del bjGames[userID]
-            userMoney = stats.getUserMoney(userName, userID)
-            msg += "\n**You currently have ${}**".format(userMoney)
+            del bjGames[user_id]
+            user_money = stats.get_user_money(username, user_id)
+            msg.append(f'\n**You currently have ${user_money}**')
     else:
-        msg = "You are currently not in a game of blackjack"
-    return (msg, game)
+        msg = ['You are currently not in a game of blackjack']
+    return ''.join(msg), game
 
 
 # Double down during a game of blackjack
-def bjDoubleDown(userName, userID):
-    if userID in bjGames:
-        game = bjGames[userID]
-        userMoney = stats.getUserMoney(userName, userID)
-        userBet = game.player_bet
+def bj_double_down(username, user_id):
+    game = bjGames.get(user_id)
+    
+    if user_id in bjGames:
+        user_money = stats.get_user_money(username, user_id)
+        user_bet = game.player_bet
 
         # Make sure player has enough money to double bet
-        if userMoney < userBet * 2:
-            msg = "You do not have enough money to double your current bet of ${}".format(
-                userBet)
+        if user_money < user_bet * 2:
+            msg = [f'You do not have enough money to double your current bet of ${user_bet}']
         else:
             game.player_dd()
-            msg = game.__str__()
+            msg = [str(game)]
 
             # Check game state after player move
             if game.game_state != -1:
-                del bjGames[userID]
-                msg += "\n**You currently have ${}**".format(userMoney)
+                del bjGames[user_id]
+                msg.append(f'\n**You currently have ${user_money}**')
     else:
-        msg = "You are currently not in a game of blackjack"
-    return (msg, game)
+        msg = ['You are currently not in a game of blackjack']
+    return ''.join(msg), game
 
 
 # Update blackjack stats
-def bjUpdate(userName, userID, game):
+def bj_update(username, user_id, game):
     if game.game_state != -1:
-        stats.updateUserBJStat(userName, userID, game)
+        stats.update_user_bj_stat(username, user_id, game)
 
 
 # Return marvel/philo stats result through string
-def pmStats(userName, userID):
-    return stats.pmStats(userName, userID)
+def philo_marvel_stats(username, user_id):
+    return stats.philo_marvel_stats(username, user_id)
 
 
 # Return blackjack stats result through string
-def bjStats(userName, userID):
-    return stats.bjStats(userName, userID)
+def bj_stats(username, user_id):
+    return stats.bj_stats(username, user_id)
 
 
 # Reset user stats for specified data
 # (1) philo (2) marvel (3) blackjack or (4) all
 # Return a string indicating success
-def resetStats(userName, userID, statsType):
-    return stats.resetStats(userName, userID, statsType)
+def reset_stats(username, user_id, stats_type):
+    return stats.reset_stats(username, user_id, stats_type)
 
 
 # Give everyone in blackjack sheet money
-def giveEveryoneMoney(amount):
-    stats.giveEveryoneMoney(amount)
+def give_everyone_money(amount):
+    stats.give_everyone_money(amount)
 
 
 # Returns a string of the notable items won from philo or marvel
-def notableItems(luckyList, gotLucky):
-    if gotLucky == True:
-        msg = "\n**__Notable items:__**\n"
-        for item in luckyList:
-            if luckyList[item] > 0:
-                msg += item.title() + ": " + str(luckyList[item]) + "\n"
+def notable_items(lucky_list, got_lucky):
+    if got_lucky:
+        msg = ['\n**__Notable items:__**\n']
+        for item in lucky_list:
+            if lucky_list[item] > 0:
+                msg.append(item.title().replace("'S", "'s") + ': ' + str(lucky_list[item]) + '\n')
+        return ''.join(msg)
     else:
-        msg = "\n**__No notable items__**"
-    return msg
+        return '\n**__No notable items__**'
 
 
 # Roll a specified number of philosopher books, up to 165
 # Return the results through an array
-def philoRoll(userName, userID, numRolls):
-    philoList1 = stats.philoList1
-    philoList2 = stats.philoList2
+def philo_roll(username, user_id, num_rolls):
+    philo_list1 = stats.philo_list1
+    philo_list2 = stats.philo_list2
 
     # Lucky items in philo
     lucky = stats.philoLuckyList
-    gotLucky = False
+    got_lucky = False
     messages = []
-    msg = "**__{}'s philo run:__**\n".format(userName.title())
+    msg = [f"**__{username.title()}'s philo run:__**\n"]
 
     # Min roll of 1, max of 165 rolls
-    if numRolls < 1:
-        messages.append("Amount of rolls must be positive")
+    if num_rolls < 1:
+        messages.append('Amount of rolls must be positive')
         return messages
-    elif numRolls > 165:
-        msg += "**Max of 165 philo books (15 packs)**\n"
-        numRolls = 165
+    elif num_rolls > 165:
+        msg.append('**Max of 165 philo books (15 packs)**\n')
+        num_rolls = 165
 
     # Roll the specified amount of books
-    for i in range(0, numRolls):
-        temp = "**[" + str(i + 1) + "]** "
-        item1 = random.choice(philoList1)
-        item2 = random.choice(philoList2)
+    for i in range(1, num_rolls + 1):
+        temp = f'**[{str(i)}]** '
+        item1 = random.choice(philo_list1)
+        item2 = random.choice(philo_list2)
+        item1_name = item1.title().replace("'S", "'s").replace('9Th', '9th')
+        item2_name = item2.title().replace("'S", "'s").replace('9Th', '9th')
         # Discord syntax to bold and underline lucky items
         if item1 in lucky:
-            temp += "**__" + item1.title() + "__**, "
+            temp += '**__' + item1_name + '__**, '
             lucky[item1] += 1
-            stats.updateUserItemStat(userName, userID, item1, 1, "p")
-            gotLucky = True
+            stats.update_user_item_stat(username, user_id, item1, 1, 'p')
+            got_lucky = True
         else:
-            temp += item1.title() + ", "
+            temp += item1_name + ', '
         if item2 in lucky:
-            temp += "**__" + item2.title() + "__** "
+            temp += '**__' + item2_name + '__** '
             lucky[item2] += 1
-            stats.updateUserItemStat(userName, userID, item2, 1, "p")
-            gotLucky = True
+            stats.update_user_item_stat(username, user_id, item2, 1, 'p')
+            got_lucky = True
         else:
-            temp += item2.title() + " "
+            temp += item2_name + ' '
         # Check for bot message length limit of 2,000 chars
-        if len(msg) + len(temp) > 2000:
-            messages.append(msg)
-            msg = temp
+        if sum(len(s) for s in msg) + len(temp) > 2000:
+            messages.append(''.join(msg))
+            msg = [temp]
         else:
-            msg += temp
+            msg.append(temp)
 
     # Highlight lucky items and update user stat
-    temp = notableItems(lucky, gotLucky)
-    stats.updateUserItemStat(userName, userID, "rolls", numRolls, "p")
+    temp = notable_items(lucky, got_lucky)
+    stats.update_user_item_stat(username, user_id, 'rolls', num_rolls, 'p')
 
     # Another final check for message length limit
-    if len(msg) + len(temp) > 2000:
-        messages.append(msg)
-        msg = temp
+    if sum(len(s) for s in msg) + len(temp) > 2000:
+        messages.append(''.join(msg))
+        msg = [temp]
     else:
-        msg += temp
-    messages.append(msg)
+        msg.append(temp)
+    messages.append(''.join(msg))
     return messages
 
 
 # Roll philo books until the specified item is found
 # These rolls are not recorded in stats
 # Return the results through a string
-def philoFind(item):
-    philoList1 = stats.philoList1
-    philoList2 = stats.philoList2
+def philo_find(item):
+    philo_list1 = stats.philo_list1
+    philo_list2 = stats.philo_list2
     counter = 0
     found = False
     item = item.strip().lower()
 
     # Roll until item is found
-    if item in philoList1 or item in philoList2:
-        while found == False:
+    if item in philo_list1 or item in philo_list2:
+        while not found:
             counter += 1
-            if item in philoList1:
-                result = random.choice(philoList1)
+            if item in philo_list1:
+                result = random.choice(philo_list1)
             else:
-                result = random.choice(philoList2)
+                result = random.choice(philo_list2)
             if item == result:
                 found = True
     else:
-        return "Invalid item"
+        return 'Invalid item'
 
     # Calculate spending costs and return results
-    costs = stats.pmSpendings(counter, 0)
+    costs = stats.philo_marvel_spendings(counter, 0)
     low_money = costs[0]
     high_money = costs[1]
-    msg = "It took {:,d} book(s) to get the item: ".format(
-        counter) + item.title() + "\n"
-    msg += "{:,d} book(s) = ${:,.2f} ~ ${:,.2f}".format(counter,
-                                                        low_money, high_money)
-    return msg
+    item_name = item.title().replace("'S", "'s").replace('9Th', '9th')
+    msg = [f'It took {counter:,d} book(s) to get the item: {item_name}\n',
+           f'{counter:,d} book(s) = ${low_money:,.2f} ~ ${high_money:,.2f}']
+    return ''.join(msg)
 
 
 # Roll marvel a specified number of times, up to 110
 # Return the results through an array
-def marvelRoll(userName, userID, numRolls):
-    marvelList1 = stats.marvelList1
-    marvelList2 = stats.marvelList2
-    marvelList3 = stats.marvelList3
+def marvel_roll(username, user_id, num_rolls):
+    marvel_list1 = stats.marvel_list1
+    marvel_list2 = stats.marvel_list2
+    marvel_list3 = stats.marvel_list3
 
     # Lucky items in marvel
     lucky = stats.marvelLuckyList
-    gotLucky = False
+    got_lucky = False
     messages = []
-    msg = "**__{}'s marvel run:__**\n".format(userName.title())
+    msg = [f"**__{username.title()}'s marvel run:__**\n"]
 
     # Min roll of 1, max roll of 110
-    if numRolls < 1:
-        messages.append("Amount of rolls must be positive")
+    if num_rolls < 1:
+        messages.append('Amount of rolls must be positive')
         return messages
-    elif numRolls > 110:
-        msg += "**Max of 110 marvel spins (10 packs)**\n"
-        numRolls = 110
+    elif num_rolls > 110:
+        msg.append('**Max of 110 marvel spins (10 packs)**\n')
+        num_rolls = 110
 
     # Roll the specified amount
-    for i in range(0, numRolls):
-        temp = "**[" + str(i + 1) + "]** "
-        itemA = random.choice(marvelList1)
-        itemB = random.choice(marvelList2)
-        itemC = random.choice(marvelList3)
+    for i in range(1, num_rolls + 1):
+        temp = f'**[{str(i)}]** '
+        item1 = random.choice(marvel_list1)
+        item2 = random.choice(marvel_list2)
+        item3 = random.choice(marvel_list3)
+        item1_name = item1.title().replace("'S", "'s").replace('9Th', '9th')
+        item2_name = item2.title().replace("'S", "'s").replace('9Th', '9th')
+        item3_name = item3.title().replace("'S", "'s").replace('9Th', '9th')
         # Discord syntax to bold and underline lucky items
-        if itemA in lucky:
-            temp += "**__" + itemA.title() + "__**, "
-            lucky[itemA] += 1
-            stats.updateUserItemStat(userName, userID, itemA, 1, "m")
-            gotLucky = True
+        if item1 in lucky:
+            temp += '**__' + item1_name + '__**, '
+            lucky[item1] += 1
+            stats.update_user_item_stat(username, user_id, item1, 1, 'm')
+            got_lucky = True
         else:
-            temp += itemA.title() + ", "
-        if itemB in lucky:
-            temp += "**__" + itemB.title() + "__**, "
-            lucky[itemB] += 1
-            stats.updateUserItemStat(userName, userID, itemB, 1, "m")
-            gotLucky = True
+            temp += item1_name + ', '
+        if item2 in lucky:
+            temp += '**__' + item2_name + '__**, '
+            lucky[item2] += 1
+            stats.update_user_item_stat(username, user_id, item2, 1, 'm')
+            got_lucky = True
         else:
-            temp += itemB.title() + ", "
-        if itemC in lucky:
-            temp += "**__" + itemC.title() + "__** "
-            lucky[itemC] += 1
-            stats.updateUserItemStat(userName, userID, itemC, 1, "m")
-            gotLucky = True
+            temp += item2_name + ', '
+        if item3 in lucky:
+            temp += '**__' + item3_name + '__** '
+            lucky[item3] += 1
+            stats.update_user_item_stat(username, user_id, item3, 1, 'm')
+            got_lucky = True
         else:
-            temp += itemC.title() + " "
+            temp += item3_name + ' '
         # Check for bot message length limit of 2,000 chars
-        if len(msg) + len(temp) > 2000:
-            messages.append(msg)
-            msg = temp
+        if sum(len(s) for s in msg) + len(temp) > 2000:
+            messages.append(''.join(msg))
+            msg = [temp]
         else:
-            msg += temp
+            msg.append(temp)
 
     # Highlight lucky items and update user stats
-    temp = notableItems(lucky, gotLucky)
-    stats.updateUserItemStat(userName, userID, "rolls", numRolls, "m")
+    temp = notable_items(lucky, got_lucky)
+    stats.update_user_item_stat(username, user_id, 'rolls', num_rolls, 'm')
 
     # Another final check for message length limit
-    if len(msg) + len(temp) > 2000:
-        messages.append(msg)
-        msg = temp
+    if sum(len(s) for s in msg) + len(temp) > 2000:
+        messages.append(''.join(msg))
+        messages.append(temp)
     else:
-        msg += temp
-    messages.append(msg)
+        msg.append(temp)
+        messages.append(''.join(msg))
     return messages
 
 
 # Roll marvel until the specified item is found
 # These rolls are not recorded in stats
 # Return results through a string
-def marvelFind(item):
-    marvelList1 = stats.marvelList1
-    marvelList2 = stats.marvelList2
-    marvelList3 = stats.marvelList3
+def marvel_find(item):
+    marvel_list1 = stats.marvel_list1
+    marvel_list2 = stats.marvel_list2
+    marvel_list3 = stats.marvel_list3
     counter = 0
     found = False
     item = item.strip().lower()
 
     # Roll until item is found
-    if item in marvelList1 or item in marvelList2 or item in marvelList3:
-        while found == False:
+    if item in marvel_list1 or item in marvel_list2 or item in marvel_list3:
+        while not found:
             counter += 1
-            if item in marvelList1:
-                result = random.choice(marvelList1)
-            elif item in marvelList2:
-                result = random.choice(marvelList2)
+            if item in marvel_list1:
+                result = random.choice(marvel_list1)
+            elif item in marvel_list2:
+                result = random.choice(marvel_list2)
             else:
-                result = random.choice(marvelList3)
+                result = random.choice(marvel_list3)
             if item == result:
                 found = True
     else:
-        return "Invalid item"
+        return 'Invalid item'
 
     # Calculate spending costs and return results
-    costs = stats.pmSpendings(counter, 1)
+    costs = stats.philo_marvel_spendings(counter, 1)
     low_money = costs[0]
     high_money = costs[1]
-    msg = "It took {:,d} spin(s) to get the item: ".format(
-        counter) + item.title() + "\n"
-    msg += "{:,d} spin(s) = ${:,.2f} ~ ${:,.2f}".format(counter,
-                                                        low_money, high_money)
-    return msg
+    item_name = item.title().replace("'S", "'s").replace('9Th', '9th')
+    msg = [f'It took {counter:,d} spin(s) to get the item: {item_name}\n',
+           f'{counter:,d} spin(s) = ${low_money:,.2f} ~ ${high_money:,.2f}']
+    return ''.join(msg)
 
 
 # Roll a die with specified number of sides, a specified number of times
 # Return the results through an array
-def roll(numRolls, numSides):
-    results = [0] * numSides
+def roll(num_rolls, num_sides):
+    results = [0] * num_sides
 
-    for x in range(0, numRolls):
-        rand = random.randint(1, numSides)
+    for x in range(num_rolls):
+        rand = random.randint(1, num_sides)
         results[rand - 1] += 1
 
     return results
@@ -518,65 +510,64 @@ def roll(numRolls, numSides):
 
 # Flip a coin the specified number of times
 # Return the results through a string
-def flip(numFlips):
+def flip(num_flips):
     # Amount of flips must be positive
-    if numFlips < 1:
-        return "Amount of rolls must be positive or empty to use default value"
+    if num_flips < 1:
+        return 'Amount of rolls must be positive or empty to use default value'
     # Flip just once
-    elif numFlips == 1:
+    elif num_flips == 1:
         rand = random.randint(0, 1)
         if rand == 0:
-            return "Heads"
+            return 'Heads'
         else:
-            return "Tails"
+            return 'Tails'
     # Different message format for flipping more than once
     else:
         # String to be sent after results
-        msg = ""
-        if numFlips > 100000:
-            msg += "**Max of 100,000 flips**\n"
-            numFlips = 100000
+        msg = []
+        if num_flips > 100000:
+            msg.append('**Max of 100,000 flips**\n')
+            num_flips = 100000
 
         # Get and send results
-        results = roll(numFlips, 2)
+        results = roll(num_flips, 2)
         head = results[0]
         tail = results[1]
-        hRate = head / numFlips * 100
-        tRate = tail / numFlips * 100
+        h_rate = head / num_flips * 100
+        t_rate = tail / num_flips * 100
 
-        msg += "Heads: {:,d} ({:.2f}%)\nTails: {:,d} ({:.2f}%)"
-        return msg.format(head, hRate, tail, tRate)
+        msg.append(f'Heads: {head:,d} ({h_rate:.2f}%)\nTails: {tail:,d} ({t_rate:.2f}%)')
+        return ''.join(msg)
 
 
 # Flip a coin with an initial guess
 # Return the results through a string
-def flipGuess(guess):
+def flip_guess(guess):
     # Set of acceptable string values for guess
-    allowedGuesses = {"head", "heads", "h", "tail", "tails", "t"}
+    allowed_guesses = {'head', 'heads', 'h', 'tail', 'tails', 't'}
     guess = guess.strip()  # Remove leading and trailing whitespace
     guess = guess.lower()  # make all letters lowercase
-    msg = "You guessed {} and it flipped {}\n"
-    result = ""
+    msg = ['You guessed {} and it flipped {}\n']
 
     # Valid guess
-    if guess in allowedGuesses:
+    if guess in allowed_guesses:
         rand = random.randint(0, 1)
-        if guess.startswith("h"):
-            guess = "heads"
+        if guess.startswith('h'):
+            guess = 'heads'
         else:
-            guess = "tails"
+            guess = 'tails'
 
         if rand == 0:
-            result = "heads"
+            result = 'heads'
         else:
-            result = "tails"
+            result = 'tails'
 
         if guess == result:
-            msg += "You were **right**"
+            msg.append('You were **right**')
         else:
-            msg += "You were **wrong**"
+            msg.append('You were **wrong**')
 
-        return msg.format(guess, result)
+        return ''.join(msg).format(guess, result)
     # Invalid guess
     else:
         return "Invalid guess. Try again with a guess of 'h' or 't'"
@@ -584,62 +575,58 @@ def flipGuess(guess):
 
 # Roll a die with specified number of sides, a specified number of times
 # Return the results through an array due to bot message length
-def rollDie(numRolls, numSides):
-    # array of results to be sent
+def roll_die(num_rolls, num_sides):
+    # Array of results to be sent
     messages = []
     # Amount of flips and face count must be positive
-    if numRolls < 1 or numSides < 1:
-        messages.append(
-            "Amount of rolls and die side count must be positive or empty to use default values")
+    if num_rolls < 1 or num_sides < 1:
+        messages.append('Amount of rolls and die side count must be positive or empty to use default values')
     # Roll just once
-    elif numRolls == 1:
-        rand = random.randint(1, numSides)
+    elif num_rolls == 1:
+        rand = random.randint(1, num_sides)
         messages.append(rand)
     # Different message format for rolling more than once
     else:
         # String of results to be sent
-        msg = ""
-        if numSides > 100:
-            msg += "**Max of 100 sided die**\n"
-            numSides = 100
-        if numRolls > 100000:
-            msg += "**Max of 100,000 rolls**\n"
-            numRolls = 100000
+        msg = []
+        if num_sides > 100:
+            msg.append('**Max of 100 sided die**\n')
+            num_sides = 100
+        if num_rolls > 100000:
+            msg.append('**Max of 100,000 rolls**\n')
+            num_rolls = 100000
 
         # Get and send results. Note bots have max length of 2,000 chars per msg
-        results = roll(numRolls, numSides)
-        for x in range(0, numSides):
+        results = roll(num_rolls, num_sides)
+        for x in range(0, num_sides):
             if results[x] > 0:
-                res = "{:,d}: {:,d} ({:.2f}%)\n".format(
-                    x + 1, results[x], (results[x] / numRolls * 100))
-                if len(msg) + len(res) > 2000:
-                    messages.append(msg)
-                    msg = res
+                res = f'{x + 1:,d}: {results[x]:,d} ({(results[x] / num_rolls * 100):.2f}%)\n'
+                if sum(len(s) for s in msg) + len(res) > 2000:
+                    messages.append(''.join(msg))
+                    msg = [res]
                 else:
-                    msg += res
-        messages.append(msg)
+                    msg.append(res)
+        messages.append(''.join(msg))
     return messages
 
 
 # Calculate days needed to max arcane force symbols
-def af(startLvl, endLvl, currProgress, dailyRate):
-    capProgress = startLvl * startLvl + 11
-    if endLvl < 1 or startLvl < 1 or endLvl > 20 or startLvl >= 20:
-        return "Starting and ending levels must be positive and at most 20"
-    elif endLvl < startLvl:
-        return "Ending level must be greater than or equal to the starting level"
-    elif currProgress < 0 or currProgress > capProgress:
-        return "Current number of symbols used must be non-negative and less than {}".format(capProgress)
-    elif dailyRate < 0:
-        return "Daily rate must be non-negative"
+def af(start_lvl, end_lvl, curr_progress, daily_rate):
+    cap_progress = start_lvl * start_lvl + 11
+    if end_lvl < 1 or start_lvl < 1 or end_lvl > 20 or start_lvl >= 20:
+        return 'Starting and ending levels must be positive and at most 20'
+    elif end_lvl < start_lvl:
+        return 'Ending level must be greater than or equal to the starting level'
+    elif curr_progress < 0 or curr_progress > cap_progress:
+        return f'Current number of symbols used must be non-negative and less than {cap_progress}'
+    elif daily_rate < 0:
+        return 'Daily rate must be non-negative'
     else:
-        symbolsNeeded = 0
-        for i in range(startLvl, endLvl):
-            symbolsNeeded += i * i + 11
-        symbolsNeeded -= currProgress
-        daysNeeded = symbolsNeeded / dailyRate
-        msg = "Leveling up from lvl {} ({}/{}) to lvl {} needs {} total symbols\n".format(
-            startLvl, currProgress, capProgress, endLvl, symbolsNeeded)
-        msg += "With a rate of {} symbols per day, {} ({:.2f}) days are needed".format(
-            dailyRate, ceil(daysNeeded), daysNeeded)
-        return msg
+        symbols_needed = 0
+        for i in range(start_lvl, end_lvl):
+            symbols_needed += i * i + 11
+        symbols_needed -= curr_progress
+        days_needed = symbols_needed / daily_rate
+        msg = [f'Leveling up from lvl {start_lvl} ({curr_progress}/{cap_progress}) to lvl {end_lvl} needs {symbols_needed} total symbols\n',
+               f'With a rate of {daily_rate} symbols per day, {ceil(days_needed)} ({days_needed:.2f}) days are needed']
+        return ''.join(msg)

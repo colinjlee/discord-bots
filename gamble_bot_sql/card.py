@@ -4,7 +4,7 @@ class Card:
         self.rank = rank
 
     def __repr__(self):
-        return "<Card: suit:{} rank:{}>".format(self.suit, self.rank)
+        return f"<Card: suit:{self.suit} rank:{self.rank}>"
 
     def __str__(self):
-        return "{} of {}".format(self.rank, self.suit)
+        return f"{self.rank} of {self.suit}"
